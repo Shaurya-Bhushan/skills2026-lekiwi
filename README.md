@@ -97,6 +97,7 @@ This repo adds:
 - scripted ECU primitives with graceful fallback to front-only mode
 - a task catalog centered on ECU repair, transformers, circuit boards, and Steve
 - an ACT-ready data collection and replay workflow
+- an optional ACT competition backend for trained checkpoints
 - teleop / record / replay helpers that stay close to official LeRobot workflows
 
 ## What The User Must Still Do
@@ -656,6 +657,16 @@ Once teleop and scripted control are stable, collect demonstrations:
 skills2026 record insert_fuse
 ```
 
+You can also record the other important Ontario primitives:
+
+```bash
+skills2026 record remove_board
+skills2026 record insert_board
+skills2026 record deliver_steve_to_lobby
+skills2026 record unlock_transformer_bolts
+skills2026 record replace_transformer
+```
+
 Then replay them:
 
 ```bash
@@ -688,6 +699,7 @@ Use ACT for:
 
 - fuse insertion refinement
 - bolt sliding refinement
+- transformer contact refinement if your scripted path is close but still inconsistent
 
 Do **not** use ACT as the first thing you build.
 Do **not** assume ACT is required for this repo to be useful.
@@ -705,6 +717,68 @@ In other words:
 - calibration is mandatory
 - service poses are mandatory
 - replay stability is mandatory before training
+
+### What ACT Means In This Repo
+
+ACT in this repo is an **optional backend**, not the main system.
+
+The default remains:
+
+- `opencv_fsm`
+
+ACT is only for the case where you already have:
+
+- a trained ACT checkpoint
+- a recorded local dataset for the same primitive
+- matching camera names and action layout
+
+Run it like this:
+
+```bash
+skills2026 competition ecu \
+  --backend act \
+  --primitive insert_fuse \
+  --policy-path your_user/your_act_checkpoint \
+  --dataset-name default_insert_fuse
+```
+
+Or with a local checkpoint path:
+
+```bash
+skills2026 competition ecu \
+  --backend act \
+  --primitive replace_transformer \
+  --policy-path /absolute/path/to/pretrained_model \
+  --dataset-name default_replace_transformer
+```
+
+The ACT backend uses:
+
+- your trained checkpoint for action prediction
+- your recorded LeRobot dataset metadata for feature names and normalization stats
+- the same LeKiwi runtime and safety wrapper used by the scripted system
+
+So ACT is not a separate robot stack.
+It is just an optional learned policy path inside the same LeKiwi system.
+
+### What ACT Still Does Not Replace
+
+Even with ACT, you still need:
+
+- correct LeKiwi setup
+- correct ports
+- correct calibration
+- rigid cameras
+- good service poses
+- a stable ECU work position
+
+ACT does **not** fix:
+
+- bad wiring
+- wrong motor IDs
+- moved cameras
+- bad calibration
+- bad datasets
 
 ## Match-Day Mode
 
@@ -755,6 +829,7 @@ skills2026 competition ecu --primitive insert_board --target-slot center
 skills2026 competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
 skills2026 competition ecu --primitive replace_transformer --target-slot left
 skills2026 competition mission --mission-name ecu_steve_priority
+skills2026 competition ecu --backend act --primitive insert_fuse --policy-path your_user/your_act_checkpoint --dataset-name default_insert_fuse
 ```
 
 ## If Something Is Going Wrong

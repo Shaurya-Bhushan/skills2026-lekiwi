@@ -48,7 +48,23 @@ def build_parser() -> argparse.ArgumentParser:
     teleop_parser.set_defaults(handler="skills2026.commands.teleop:run")
 
     record_parser = subparsers.add_parser("record", help="Record a primitive dataset.")
-    record_parser.add_argument("primitive", choices=["pick_fuse", "insert_fuse", "pick_board", "insert_board"])
+    record_parser.add_argument(
+        "primitive",
+        choices=[
+            "remove_fuse",
+            "pick_fuse",
+            "insert_fuse",
+            "remove_board",
+            "pick_board",
+            "insert_board",
+            "unlock_transformer_bolts",
+            "pick_transformer",
+            "remove_transformer",
+            "replace_transformer",
+            "pick_steve",
+            "deliver_steve_to_lobby",
+        ],
+    )
     record_parser.add_argument("--episodes", type=int, default=5)
     record_parser.add_argument("--fps", type=int, default=10)
     record_parser.add_argument("--episode-time-s", type=int, default=30)
@@ -62,6 +78,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     competition_parser = subparsers.add_parser("competition", help="Run competition-mode services.")
     competition_parser.add_argument("mode_name", choices=["ecu", "mission"])
+    competition_parser.add_argument(
+        "--backend",
+        choices=["opencv_fsm", "act"],
+        default=None,
+        help="Keep OpenCV + FSM as the default. Use `act` only with a trained checkpoint.",
+    )
     competition_parser.add_argument(
         "--primitive",
         default="insert_fuse",
@@ -89,6 +111,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     competition_parser.add_argument("--target-color", choices=["orange", "green", "blue"], default="green")
     competition_parser.add_argument("--target-slot", default="center")
+    competition_parser.add_argument("--task", default="", help="Optional task string passed into ACT inference.")
+    competition_parser.add_argument(
+        "--policy-path",
+        default="",
+        help="Required for `--backend act`: local or Hub ACT checkpoint path.",
+    )
+    competition_parser.add_argument(
+        "--dataset-name",
+        default="",
+        help="Optional local dataset folder used for ACT feature names and normalization stats.",
+    )
+    competition_parser.add_argument(
+        "--policy-device",
+        default="",
+        help="Optional ACT device override such as `cpu`, `mps`, or `cuda`.",
+    )
     competition_parser.add_argument("--max-cycles", type=int, default=500)
     competition_parser.set_defaults(handler="skills2026.commands.competition:run")
 

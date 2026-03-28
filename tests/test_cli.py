@@ -20,6 +20,29 @@ class CLITests(unittest.TestCase):
         )
         self.assertEqual(args.primitive, "remove_transformer")
 
+    def test_competition_act_backend_argument(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "competition",
+                "ecu",
+                "--backend",
+                "act",
+                "--primitive",
+                "insert_fuse",
+                "--policy-path",
+                "user/act_insert_fuse",
+                "--dataset-name",
+                "default_insert_fuse",
+                "--policy-device",
+                "cpu",
+            ]
+        )
+        self.assertEqual(args.backend, "act")
+        self.assertEqual(args.policy_path, "user/act_insert_fuse")
+        self.assertEqual(args.dataset_name, "default_insert_fuse")
+        self.assertEqual(args.policy_device, "cpu")
+
     def test_ui_command_exists(self):
         parser = build_parser()
         args = parser.parse_args(["ui", "--host", "0.0.0.0", "--port", "9999", "--no-browser"])

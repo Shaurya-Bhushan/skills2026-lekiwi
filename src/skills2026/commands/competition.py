@@ -19,6 +19,11 @@ def run(args) -> int:
     host_process = maybe_start_local_host(profile)
     try:
         if args.mode_name == "mission":
+            if args.backend == "act":
+                raise ValueError(
+                    "ACT backend currently supports `competition ecu` primitives only. "
+                    "Use the scripted mission runner for full-task sequencing."
+                )
             runner = MissionRunner.from_profile(
                 profile=profile,
                 mission_name=args.mission_name,
@@ -27,14 +32,26 @@ def run(args) -> int:
             )
             return runner.run(max_cycles_per_primitive=args.max_cycles)
 
-        from skills2026.control.competition import CompetitionRunner
+        if args.backend == "act":
+            from skills2026.policy.act import ACTRunner
 
-        runner = CompetitionRunner.from_profile(
-            profile=profile,
-            primitive_name=args.primitive,
-            target_color=args.target_color,
-            target_slot=args.target_slot,
-        )
+            runner = ACTRunner.from_profile(
+                profile=profile,
+                primitive_name=args.primitive,
+                policy_path=args.policy_path,
+                dataset_name=args.dataset_name or None,
+                task=args.task or None,
+                device_name=args.policy_device or None,
+            )
+        else:
+            from skills2026.control.competition import CompetitionRunner
+
+            runner = CompetitionRunner.from_profile(
+                profile=profile,
+                primitive_name=args.primitive,
+                target_color=args.target_color,
+                target_slot=args.target_slot,
+            )
         return runner.run(max_cycles=args.max_cycles)
     finally:
         if host_process is not None:
