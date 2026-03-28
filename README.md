@@ -27,6 +27,62 @@ Read these first and keep them open while you work:
 - [LeRobot imitation learning on real robots](https://huggingface.co/docs/lerobot/en/il_robots)
 - [LeRobot ACT docs](https://huggingface.co/docs/lerobot/en/act)
 
+## Quick Answer: Do You Need Training?
+
+Short answer: **no, not for the first useful version of this system**.
+
+This repo is intentionally built so the first competition-ready baseline is:
+
+- two RGB cameras
+- OpenCV perception
+- scripted finite-state-machine control
+- no learning required
+
+That means:
+
+- you can bring up fuse work without training
+- you can bring up circuit-board work without training
+- you can bring up Steve pickup and lobby delivery without training
+- you can attempt transformer work without training
+
+Training is **optional**, not mandatory.
+
+You should only add ACT later if:
+
+- fuse insertion is still not reliable enough after calibration and pose tuning
+- transformer bolt/contact behavior is still your main failure after the scripted baseline is already usable
+- your teleop demos are clean and replayable
+
+If the scripted system already scores enough points for your goals, you do **not** need training at all.
+
+## What Plug-And-Play Means Here
+
+This repo is designed to be as plug-and-play as realistically possible for LeKiwi, but it is **not** magic and it is **not** zero-setup.
+
+In this repo, plug-and-play means:
+
+- the system stays close to official LeRobot and LeKiwi workflows
+- the setup is guided through a beginner UI
+- your robot settings are saved in a reusable profile
+- daily startup is repeatable
+- the default backend is already chosen for you
+- the commands for teleop, readiness checks, ECU tasks, and missions are already organized
+
+It does **not** mean:
+
+- no calibration
+- no motor setup
+- no pose capture
+- no camera mounting
+- no tuning
+
+The goal is:
+
+1. do the hard setup once
+2. save it
+3. reuse it every practice session
+4. keep the daily workflow simple for students
+
 ## What This Repo Does
 
 This repo adds:
@@ -42,6 +98,33 @@ This repo adds:
 - a task catalog centered on ECU repair, transformers, circuit boards, and Steve
 - an ACT-ready data collection and replay workflow
 - teleop / record / replay helpers that stay close to official LeRobot workflows
+
+## What The User Must Still Do
+
+The system is only as good as the physical setup you give it.
+
+You still need to provide:
+
+- a working LeKiwi robot
+- a working leader arm
+- a rigid front camera mount
+- a rigid wrist camera mount
+- correct motor IDs and robot wiring
+- a safe kill switch
+- a printed wiring diagram
+- a known ECU service pose the robot can reach consistently
+- enough lighting that the cameras can clearly see colors and markings
+
+You also need to do these one-time setup tasks:
+
+- install LeRobot and LeKiwi correctly
+- calibrate the follower arm
+- calibrate the leader arm
+- detect and save camera IDs
+- capture camera calibration
+- capture service poses for each main task
+
+If any of those are skipped, the system will still run, but it will not feel truly plug-and-play.
 
 ## What This Repo Does Not Do
 
@@ -61,6 +144,28 @@ You still need to:
 - bring a wiring diagram
 - calibrate the follower and leader arms
 - test the complete system before competition day
+
+## What Works Without Training
+
+The baseline system is meant to work **without training** for the Ontario tasks this repo focuses on.
+
+That baseline is strongest for:
+
+- fuse pickup and fuse insertion
+- board removal and board insertion
+- Steve pickup and Steve placement in the lobby
+- first-pass transformer bolt / remove / replace routines
+
+Why that is realistic:
+
+- the front camera handles coarse scene understanding
+- the wrist camera handles the final close-range alignment
+- the controller uses saved service poses instead of trying to solve everything from scratch
+- the ECU geometry and markings are forgiving enough for a classical baseline
+
+The hardest baseline task is still transformers.
+
+Transformers are included in the system, but they will usually need more pose tuning and more careful mechanical setup than fuses, boards, or Steve.
 
 ## Why This Approach Fits Skills Ontario
 
@@ -114,9 +219,12 @@ Minimum practical setup:
 - SO100 leader arm
 - front RGB camera
 - wrist RGB camera
+- rigid front camera mount
+- rigid wrist camera mount
 - robot computer:
   - Raspberry Pi 5 4 GB is acceptable for the scripted OpenCV stack
 - development laptop
+- stable lighting over the ECU work area
 - accessible kill switch
 - printed wiring diagram
 - tabletop stand
@@ -145,6 +253,78 @@ This repo supports two modes:
 - `competition_local`
   - perception and control run locally on the robot
   - use this for competition because off-robot video is not allowed
+
+## How The System Works
+
+At a high level, the system works like this:
+
+1. the robot is manually parked at a known ECU work pose
+2. the front camera looks at the full work area
+3. the front pipeline finds the target object or target slot
+4. the arm moves to a saved coarse approach pose
+5. the wrist camera becomes important near the last few centimeters of the task
+6. the wrist pipeline refines alignment and checks final placement
+7. the finite-state machine decides whether to continue, verify, retry, or back out
+
+The two cameras have different jobs:
+
+- front camera:
+  - find the ECU face
+  - find the target part
+  - find the target slot or hole
+  - support coarse approach
+- wrist camera:
+  - refine near-gripper alignment
+  - verify final insertion or placement
+  - help with contact-heavy steps such as fuse insertion and transformer interaction
+
+The controller itself is not a black box.
+It follows a fixed state-machine style flow:
+
+- detect global target
+- approach coarse pose
+- switch to wrist precision
+- align fine
+- grasp or insert
+- verify result
+- retract
+- retry or abort if needed
+
+This is important for students because failures stay visible.
+You can usually tell whether the problem is:
+
+- bad detection
+- bad service poses
+- bad calibration
+- bad mechanical alignment
+- or genuine contact difficulty
+
+## What Makes It Run On A Pi 5 4 GB
+
+This repo is built to stay lightweight enough for the scripted Ontario baseline.
+
+It does that by:
+
+- using classical vision instead of a heavy detector
+- using one always-on front pipeline
+- using the wrist camera mainly during close-range precision phases
+- using a runtime budget that can reduce wrist usage if compute falls behind
+- avoiding heavy live visualization in competition mode
+
+That means the Pi is being used for:
+
+- camera capture
+- OpenCV processing
+- finite-state-machine control
+- LeKiwi client/runtime logic
+
+It is **not** expected to do:
+
+- heavy training
+- fancy multimodal models
+- big multi-camera learned pipelines
+
+So for this repo’s intended use, the Pi 5 4 GB is acceptable.
 
 ## Step 1: Install LeRobot and LeKiwi
 
@@ -270,6 +450,21 @@ This command helps you save:
 - camera calibration clicks
 - service poses
 
+For this repo, the important service poses are the ones that support:
+
+- fuse removal
+- fuse insertion
+- board removal
+- board insertion
+- Steve pickup
+- Steve placement in the lobby
+- transformer bolt interaction
+- transformer removal
+- transformer insertion
+- safe retract / stow positions
+
+If these poses are missing or wrong, the system will not feel plug-and-play.
+
 If the robot is not powered yet, you can still save the basic profile:
 
 ```bash
@@ -295,6 +490,15 @@ This checks:
 - competition checklist
 
 Do not move on until `doctor` is mostly clean.
+
+If `doctor` is failing, do **not** try to fix the problem by jumping straight to training.
+Training does not solve:
+
+- wrong ports
+- wrong motor IDs
+- moved cameras
+- bad calibration
+- missing service poses
 
 ## Step 8: Teleoperate First
 
@@ -342,6 +546,16 @@ skills2026 competition ecu --primitive insert_fuse --target-color green
 
 Repeat with the other colors once one color works.
 
+Important: the first useful fuse version does **not** need training.
+If the system can:
+
+- detect the fuse color
+- reach the right hover pose
+- line up the bare-wood insertion end
+- insert consistently enough for practice
+
+then you already have a valid baseline.
+
 ## Step 10: Do Boards Next
 
 Boards are the next best Ontario Skills target because the visual cues are large:
@@ -357,6 +571,14 @@ skills2026 competition ecu --primitive insert_board --target-slot center
 
 You will probably need to adjust your service poses and calibration a few times before board insertion feels clean.
 
+Again, this step does **not** require training first.
+Most board issues will come from:
+
+- slot alignment
+- coarse pose placement
+- gripper approach angle
+- camera framing
+
 ## Step 11: Add Steve Once Lobby Reach Is Stable
 
 Steve is a good follow-up arm task after boards because:
@@ -370,6 +592,14 @@ Run:
 ```bash
 skills2026 competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
 ```
+
+Steve is also meant to work without training in the baseline system.
+If Steve is failing, first check:
+
+- pickup pose
+- lobby place pose
+- gripper opening
+- whether the robot is parked consistently enough for the arm reach
 
 ## Step 12: Only Then Tackle Transformers
 
@@ -400,6 +630,9 @@ That preset runs:
 - Steve to lobby
 - breaker flip
 
+The goal is that this mission is still useful **before** any learning is added.
+Transformer steps are the most likely part to need extra tuning, but the repo is still designed so you try them scripted first.
+
 Other presets:
 
 ```bash
@@ -408,6 +641,14 @@ skills2026 competition mission --mission-name full_match
 ```
 
 ## Step 13: Record Data Only After Baseline Works
+
+You can stop here if the scripted system already does well enough for your goals.
+
+That is the intended design:
+
+- baseline first
+- training second
+- only if needed
 
 Once teleop and scripted control are stable, collect demonstrations:
 
@@ -449,6 +690,21 @@ Use ACT for:
 - bolt sliding refinement
 
 Do **not** use ACT as the first thing you build.
+Do **not** assume ACT is required for this repo to be useful.
+
+The right question is:
+
+- is the baseline already scoring enough?
+
+If the answer is yes, stay with the baseline.
+If the answer is no, and the remaining failures are mostly final contact/alignment failures, then ACT becomes worth trying.
+
+In other words:
+
+- training is optional
+- calibration is mandatory
+- service poses are mandatory
+- replay stability is mandatory before training
 
 ## Match-Day Mode
 
@@ -464,6 +720,25 @@ Make sure:
 - wiring diagram is printed
 - tabletop stand is ready
 - default backend is still `opencv_fsm` unless your ACT workflow is already proven
+
+## Daily Use Checklist
+
+Once the one-time setup is finished, the normal student workflow should look like this:
+
+1. power the robot computer
+2. connect the front camera
+3. connect the wrist camera
+4. connect the leader arm
+5. make sure the robot is in the same physical setup you calibrated for
+6. run `skills2026 doctor`
+7. run `skills2026 teleop` for a quick motion sanity check
+8. park the robot at the ECU service pose
+9. run the focused ECU mission or a single ECU primitive
+
+That is the real plug-and-play goal of this repo:
+
+- not zero setup forever
+- but repeatable daily bring-up with the saved profile
 
 ## Common Commands
 
