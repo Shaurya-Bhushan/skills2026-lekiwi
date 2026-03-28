@@ -43,16 +43,20 @@ class MissionRunner:
             if task.manual_note and sys.stdin.isatty():
                 input(f"{task.manual_note}\nPress Enter when the robot is ready for this task.")
 
-            for primitive_name in task.primitive_sequence:
+            if not task.primitive_sequence:
+                print(f"Task '{task.label}' recorded as operator-confirmed.")
+                continue
+
+            for step in task.primitive_sequence:
                 runner = CompetitionRunner.from_profile(
                     profile=self.profile,
-                    primitive_name=primitive_name,
-                    target_color=task.target_color or self.target_color,
-                    target_slot=task.target_slot or self.target_slot,
+                    primitive_name=step.primitive_name,
+                    target_color=step.target_color or self.target_color,
+                    target_slot=step.target_slot or self.target_slot,
                 )
                 code = runner.run(max_cycles=max_cycles_per_primitive)
                 if code != 0:
-                    print(f"Mission stopped during '{task.label}' on primitive '{primitive_name}'.")
+                    print(f"Mission stopped during '{task.label}' on primitive '{step.primitive_name}'.")
                     return code
 
         print(f"\nMission '{self.mission_name}' completed.")

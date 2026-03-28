@@ -372,13 +372,20 @@ This repo includes transformer primitives, but the intended beginner path is:
 
 Once the ECU work is stable, this repo can also sequence the other major Ontario task families:
 
+- fallen beam clearing
 - debris clearing
 - supply delivery
 - supply orientation
+- full ECU repair sequences:
+  - remove bad part
+  - discard bad part
+  - pick replacement
+  - install replacement
 - ECU fan placement
-- workers standing
+- worker safety checks
 - Steve to lobby
-- autonomous bot placement
+- breaker flip
+- final-position finish flow
 
 Run the full mission system with:
 

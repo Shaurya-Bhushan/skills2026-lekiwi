@@ -92,7 +92,7 @@ class WristPerception:
 
         if any(
             token in primitive_name
-            for token in ("debris", "supply", "worker", "steve", "fan", "autonomous_bot")
+            for token in ("debris", "supply", "worker", "steve", "fan", "autonomous_bot", "beam", "breaker", "final_robot", "transformer")
         ):
             mask = self._foreground_mask(frame)
             bbox = self._largest_bbox(mask, min_area=180)

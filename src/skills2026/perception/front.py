@@ -96,7 +96,10 @@ class FrontPerception:
             contour, bbox = self._largest_mask_contour(hsv, search_color, min_area=180)
             if bbox is None:
                 return VisionTarget(found=False, camera_role="front", label="fuse")
-            desired = FUSE_SLOT_CENTERS.get(target_color or search_color, FUSE_SLOT_CENTERS["green"])
+            if primitive_name == "pick_fuse":
+                desired = MISSION_ZONE_CENTERS.get(target_slot or "fuse_supply", MISSION_ZONE_CENTERS["fuse_supply"])
+            else:
+                desired = FUSE_SLOT_CENTERS.get(target_slot or target_color or search_color, FUSE_SLOT_CENTERS["green"])
             desired_center = (desired[0] * width, desired[1] * height)
             center = self._bbox_center(bbox)
             return VisionTarget(
@@ -112,21 +115,48 @@ class FrontPerception:
 
         if "board" in primitive_name:
             green_contour, green_bbox = self._largest_mask_contour(hsv, "green", min_area=500)
-            if green_bbox is not None:
-                desired = BOARD_SLOT_CENTERS.get(target_slot or "center", BOARD_SLOT_CENTERS["center"])
+            generic_bbox = self._largest_foreground_bbox(warped, min_area=300)
+            bbox = green_bbox or generic_bbox
+            if bbox is not None:
+                if primitive_name == "pick_board":
+                    desired = MISSION_ZONE_CENTERS.get(target_slot or "board_supply", MISSION_ZONE_CENTERS["board_supply"])
+                else:
+                    desired = BOARD_SLOT_CENTERS.get(target_slot or "center", BOARD_SLOT_CENTERS["center"])
                 desired_center = (desired[0] * width, desired[1] * height)
-                center = self._bbox_center(green_bbox)
+                center = self._bbox_center(bbox)
                 return VisionTarget(
                     found=True,
                     camera_role="front",
-                    confidence=0.70,
+                    confidence=0.70 if green_bbox is not None else 0.58,
                     center_px=center,
                     error_px=(desired_center[0] - center[0], desired_center[1] - center[1]),
-                    bbox_xywh=green_bbox,
-                    label="board_green_strip",
+                    bbox_xywh=bbox,
+                    label="board_green_strip" if green_bbox is not None else "board_foreground",
                     metadata={"desired_center": desired_center},
                 )
             return VisionTarget(found=False, camera_role="front", label="board")
+
+        if "transformer" in primitive_name:
+            if primitive_name == "pick_transformer":
+                desired = MISSION_ZONE_CENTERS.get(
+                    target_slot or "transformer_supply",
+                    MISSION_ZONE_CENTERS["transformer_supply"],
+                )
+            else:
+                desired = TRANSFORMER_SLOT_CENTERS.get(target_slot or "left", TRANSFORMER_SLOT_CENTERS["left"])
+            desired_center = (desired[0] * width, desired[1] * height)
+            bbox = self._largest_foreground_bbox(warped, min_area=320)
+            center = self._bbox_center(bbox) if bbox is not None else desired_center
+            return VisionTarget(
+                found=True,
+                camera_role="front",
+                confidence=0.60,
+                center_px=center,
+                error_px=(desired_center[0] - center[0], desired_center[1] - center[1]),
+                bbox_xywh=bbox,
+                label="transformer_region",
+                metadata={"desired_center": desired_center},
+            )
 
         generic_slot = PRIMITIVE_DEFAULT_TARGETS.get(primitive_name)
         if generic_slot:
@@ -147,14 +177,4 @@ class FrontPerception:
                 metadata={"desired_center": desired_center},
             )
 
-        desired = TRANSFORMER_SLOT_CENTERS.get(target_slot or "left", TRANSFORMER_SLOT_CENTERS["left"])
-        desired_center = (desired[0] * width, desired[1] * height)
-        return VisionTarget(
-            found=True,
-            camera_role="front",
-            confidence=0.55,
-            center_px=desired_center,
-            error_px=(0.0, 0.0),
-            label="transformer_region",
-            metadata={"desired_center": desired_center},
-        )
+        return VisionTarget(found=False, camera_role="front", label=primitive_name)

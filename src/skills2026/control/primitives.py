@@ -22,6 +22,15 @@ class PrimitiveSpec:
 
 
 PRIMITIVES: dict[str, PrimitiveSpec] = {
+    "remove_fuse": PrimitiveSpec(
+        name="remove_fuse",
+        coarse_pose="fuse_remove_hover",
+        action_pose="fuse_remove_pose",
+        retract_pose="safe_retract",
+        camera_role="wrist",
+        gripper_value=18.0,
+        success_mode="pose",
+    ),
     "pick_fuse": PrimitiveSpec(
         name="pick_fuse",
         coarse_pose="tray_hover",
@@ -29,6 +38,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=20.0,
+        success_mode="pose",
     ),
     "insert_fuse": PrimitiveSpec(
         name="insert_fuse",
@@ -38,6 +48,15 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         camera_role="wrist",
         gripper_value=80.0,
     ),
+    "remove_board": PrimitiveSpec(
+        name="remove_board",
+        coarse_pose="board_remove_hover",
+        action_pose="board_remove_pose",
+        retract_pose="safe_retract",
+        camera_role="wrist",
+        gripper_value=24.0,
+        success_mode="pose",
+    ),
     "pick_board": PrimitiveSpec(
         name="pick_board",
         coarse_pose="tray_hover",
@@ -45,6 +64,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=25.0,
+        success_mode="pose",
     ),
     "insert_board": PrimitiveSpec(
         name="insert_board",
@@ -54,6 +74,24 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         camera_role="wrist",
         gripper_value=80.0,
     ),
+    "pick_transformer": PrimitiveSpec(
+        name="pick_transformer",
+        coarse_pose="transformer_supply_hover",
+        action_pose="transformer_supply_pick_pose",
+        retract_pose="safe_retract",
+        camera_role="wrist",
+        gripper_value=26.0,
+        success_mode="pose",
+    ),
+    "remove_transformer": PrimitiveSpec(
+        name="remove_transformer",
+        coarse_pose="transformer_remove_hover",
+        action_pose="transformer_remove_pose",
+        retract_pose="safe_retract",
+        camera_role="wrist",
+        gripper_value=26.0,
+        success_mode="pose",
+    ),
     "pick_debris": PrimitiveSpec(
         name="pick_debris",
         coarse_pose="debris_hover",
@@ -61,6 +99,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=25.0,
+        success_mode="pose",
     ),
     "drop_debris": PrimitiveSpec(
         name="drop_debris",
@@ -69,6 +108,15 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=85.0,
+        success_mode="pose",
+    ),
+    "push_fallen_beam": PrimitiveSpec(
+        name="push_fallen_beam",
+        coarse_pose="beam_hover",
+        action_pose="beam_push_pose",
+        retract_pose="safe_retract",
+        camera_role="front",
+        success_mode="pose",
     ),
     "pick_supply_item": PrimitiveSpec(
         name="pick_supply_item",
@@ -77,6 +125,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=28.0,
+        success_mode="pose",
     ),
     "deliver_supply_item": PrimitiveSpec(
         name="deliver_supply_item",
@@ -85,6 +134,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=82.0,
+        success_mode="pose",
     ),
     "orient_supply_item": PrimitiveSpec(
         name="orient_supply_item",
@@ -93,6 +143,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=70.0,
+        success_mode="pose",
     ),
     "pick_worker": PrimitiveSpec(
         name="pick_worker",
@@ -101,6 +152,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=18.0,
+        success_mode="pose",
     ),
     "place_worker_upright": PrimitiveSpec(
         name="place_worker_upright",
@@ -109,6 +161,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=82.0,
+        success_mode="pose",
     ),
     "pick_steve": PrimitiveSpec(
         name="pick_steve",
@@ -117,6 +170,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=22.0,
+        success_mode="pose",
     ),
     "deliver_steve_to_lobby": PrimitiveSpec(
         name="deliver_steve_to_lobby",
@@ -125,6 +179,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=85.0,
+        success_mode="pose",
     ),
     "pick_ecu_fan": PrimitiveSpec(
         name="pick_ecu_fan",
@@ -133,6 +188,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=24.0,
+        success_mode="pose",
     ),
     "place_ecu_fan": PrimitiveSpec(
         name="place_ecu_fan",
@@ -141,6 +197,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=84.0,
+        success_mode="pose",
     ),
     "pick_autonomous_bot": PrimitiveSpec(
         name="pick_autonomous_bot",
@@ -149,6 +206,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=24.0,
+        success_mode="pose",
     ),
     "park_autonomous_bot": PrimitiveSpec(
         name="park_autonomous_bot",
@@ -157,6 +215,23 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=84.0,
+        success_mode="pose",
+    ),
+    "flip_breaker_on": PrimitiveSpec(
+        name="flip_breaker_on",
+        coarse_pose="breaker_hover",
+        action_pose="breaker_flip_pose",
+        retract_pose="safe_retract",
+        camera_role="wrist",
+        success_mode="pose",
+    ),
+    "park_final_robot": PrimitiveSpec(
+        name="park_final_robot",
+        coarse_pose="final_zone_hover",
+        action_pose="final_zone_pose",
+        retract_pose="safe_retract",
+        camera_role="front",
+        success_mode="pose",
     ),
     "unlock_transformer_bolts": PrimitiveSpec(
         name="unlock_transformer_bolts",
@@ -164,6 +239,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         action_pose="transformer_bolt_pose",
         retract_pose="safe_retract",
         camera_role="wrist",
+        success_mode="pose",
     ),
     "replace_transformer": PrimitiveSpec(
         name="replace_transformer",
@@ -172,6 +248,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=80.0,
+        success_mode="pose",
     ),
 }
 
