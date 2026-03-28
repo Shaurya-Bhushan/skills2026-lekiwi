@@ -51,7 +51,6 @@ MISSION_ZONE_CENTERS = {
 }
 
 PRIMITIVE_DEFAULT_TARGETS = {
-    "pick_debris": "debris_zone",
     "drop_debris": "debris_zone",
     "push_fallen_beam": "beam_clear_path",
     "pick_supply_item": "supply_source",
@@ -61,7 +60,7 @@ PRIMITIVE_DEFAULT_TARGETS = {
     "place_worker_upright": "workers_zone",
     "pick_steve": "steve_source",
     "deliver_steve_to_lobby": "lobby",
-    "pick_ecu_fan": "fan_mount",
+    "pick_ecu_fan": "supply_source",
     "place_ecu_fan": "fan_mount",
     "pick_autonomous_bot": "autonomous_bot_zone",
     "park_autonomous_bot": "autonomous_bot_zone",

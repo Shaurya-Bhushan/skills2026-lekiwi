@@ -55,6 +55,20 @@ def collect_checks(profile) -> list[CheckResult]:
             )
         )
 
+    enabled_sources = {
+        role: str(camera.source_id)
+        for role, camera in profile.cameras.items()
+        if camera.enabled
+    }
+    duplicate_sources = len(set(enabled_sources.values())) != len(enabled_sources)
+    results.append(
+        CheckResult(
+            "camera_source_collision",
+            not duplicate_sources,
+            ", ".join(f"{role}={source}" for role, source in enabled_sources.items()) or "no cameras enabled",
+        )
+    )
+
     for port_name, port in (("host_cmd_port", profile.host.cmd_port), ("host_observation_port", profile.host.observation_port)):
         ok, detail = tcp_port_open(profile.host.remote_ip, port)
         results.append(CheckResult(port_name, ok, detail))

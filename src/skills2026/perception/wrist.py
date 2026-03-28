@@ -1,20 +1,35 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
 
 from skills2026.perception.front import HSV_RANGES
-from skills2026.perception.models import VisionTarget
+from skills2026.perception.models import TargetSelector, VisionTarget
 
 
 @dataclass
 class WristPerception:
+    selector: TargetSelector = field(default_factory=TargetSelector)
+
     def _foreground_mask(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-        blur = cv2.GaussianBlur(gray, (5, 5), 0)
-        _, mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+        blur = cv2.GaussianBlur(clahe, (5, 5), 0)
+        _, otsu_mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        adaptive_mask = cv2.adaptiveThreshold(
+            clahe,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            31,
+            6,
+        )
+        edge_mask = cv2.Canny(clahe, 45, 120)
+        edge_mask = cv2.dilate(edge_mask, np.ones((3, 3), dtype=np.uint8), iterations=1)
+        mask = cv2.bitwise_or(otsu_mask, adaptive_mask)
+        mask = cv2.bitwise_or(mask, edge_mask)
         kernel = np.ones((5, 5), dtype=np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
@@ -24,17 +39,15 @@ class WristPerception:
         lower, upper = HSV_RANGES[color_name]
         return cv2.inRange(hsv, np.array(lower), np.array(upper))
 
-    def _largest_bbox(self, mask: np.ndarray, min_area: int = 120) -> tuple[int, int, int, int] | None:
+    def _bboxes(self, mask: np.ndarray, min_area: int = 120) -> list[tuple[int, int, int, int]]:
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        best = None
-        best_area = 0.0
+        boxes: list[tuple[int, int, int, int]] = []
         for contour in contours:
             area = cv2.contourArea(contour)
-            if area < min_area or area <= best_area:
+            if area < min_area:
                 continue
-            best = cv2.boundingRect(contour)
-            best_area = area
-        return best
+            boxes.append(cv2.boundingRect(contour))
+        return boxes
 
     def analyze(
         self,
@@ -45,10 +58,21 @@ class WristPerception:
         hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
         frame_h, frame_w = frame.shape[:2]
         desired_center = (frame_w / 2.0, frame_h / 2.0)
+        desired_slack_px = max(frame_w, frame_h) * 0.10
+        tracking_slack_px = max(frame_w, frame_h) * 0.08
+        prefer_closer = primitive_name.startswith(("pick_", "remove_"))
 
         if "fuse" in primitive_name:
             color_name = target_color or "green"
-            bbox = self._largest_bbox(self._mask_color(hsv, color_name))
+            candidates = self._bboxes(self._mask_color(hsv, color_name))
+            bbox, selection = self.selector.select_bbox(
+                candidates,
+                desired_center,
+                f"{primitive_name}:{color_name}:wrist",
+                prefer_closer=prefer_closer,
+                desired_slack_px=desired_slack_px,
+                tracking_slack_px=tracking_slack_px,
+            )
             if bbox is None:
                 return VisionTarget(found=False, camera_role="wrist", label="fuse_precision")
             x, y, w, h = bbox
@@ -66,6 +90,7 @@ class WristPerception:
                 bbox_xywh=bbox,
                 label=f"{color_name}_fuse_precision",
                 metadata={
+                    **selection,
                     "verified": verified,
                     "bare_ratio": bare_ratio,
                 },
@@ -73,7 +98,15 @@ class WristPerception:
 
         if "board" in primitive_name:
             green_mask = self._mask_color(hsv, "green")
-            bbox = self._largest_bbox(green_mask, min_area=240)
+            candidates = self._bboxes(green_mask, min_area=240)
+            bbox, selection = self.selector.select_bbox(
+                candidates,
+                desired_center,
+                f"{primitive_name}:board:wrist",
+                prefer_closer=prefer_closer,
+                desired_slack_px=desired_slack_px,
+                tracking_slack_px=tracking_slack_px,
+            )
             if bbox is None:
                 return VisionTarget(found=False, camera_role="wrist", label="board_precision")
             x, y, w, h = bbox
@@ -87,7 +120,7 @@ class WristPerception:
                 error_px=(desired_center[0] - center[0], desired_center[1] - center[1]),
                 bbox_xywh=bbox,
                 label="board_green_strip",
-                metadata={"verified": verified},
+                metadata={**selection, "verified": verified},
             )
 
         if any(
@@ -95,7 +128,15 @@ class WristPerception:
             for token in ("debris", "supply", "worker", "steve", "fan", "autonomous_bot", "beam", "breaker", "final_robot", "transformer")
         ):
             mask = self._foreground_mask(frame)
-            bbox = self._largest_bbox(mask, min_area=180)
+            candidates = self._bboxes(mask, min_area=180)
+            bbox, selection = self.selector.select_bbox(
+                candidates,
+                desired_center,
+                f"{primitive_name}:generic:wrist",
+                prefer_closer=prefer_closer,
+                desired_slack_px=desired_slack_px,
+                tracking_slack_px=tracking_slack_px,
+            )
             if bbox is None:
                 return VisionTarget(found=False, camera_role="wrist", label=f"{primitive_name}_precision")
             x, y, w, h = bbox
@@ -110,7 +151,7 @@ class WristPerception:
                 error_px=error_px,
                 bbox_xywh=bbox,
                 label=f"{primitive_name}_precision",
-                metadata={"verified": verified},
+                metadata={**selection, "verified": verified},
             )
 
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)

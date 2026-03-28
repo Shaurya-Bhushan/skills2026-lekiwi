@@ -17,6 +17,20 @@ def _identity_homography() -> list[list[float]]:
     ]
 
 
+def _migrate_legacy_wrist_x_gains(raw: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(raw)
+    x_gains = {str(k): float(v) for k, v in merged.get("x_gains", {}).items()}
+    legacy_defaults = {
+        "arm_shoulder_pan.pos": -2.5,
+        "arm_wrist_roll.pos": 1.5,
+    }
+    if x_gains == legacy_defaults:
+        merged["x_gains"] = {
+            "arm_shoulder_pan.pos": -3.0,
+        }
+    return merged
+
+
 @dataclass
 class CameraCalibration:
     calibrated: bool = False
@@ -190,8 +204,7 @@ class Skills2026Profile:
                 ),
                 "wrist": ServoProfile(
                     x_gains={
-                        "arm_shoulder_pan.pos": -2.5,
-                        "arm_wrist_roll.pos": 1.5,
+                        "arm_shoulder_pan.pos": -3.0,
                     },
                     y_gains={
                         "arm_shoulder_lift.pos": 2.5,
@@ -283,12 +296,14 @@ class Skills2026Profile:
         servo = raw.get("servo", {})
         merged_servo: dict[str, ServoProfile] = {}
         for role, servo_profile in profile.servo.items():
-            merged_servo[role] = ServoProfile.from_dict(
-                {**asdict(servo_profile), **servo.get(role, {})}
-            )
+            merged_raw = {**asdict(servo_profile), **servo.get(role, {})}
+            if role == "wrist":
+                merged_raw = _migrate_legacy_wrist_x_gains(merged_raw)
+            merged_servo[role] = ServoProfile.from_dict(merged_raw)
         for role, servo_raw in servo.items():
             if role not in merged_servo:
-                merged_servo[role] = ServoProfile.from_dict(servo_raw)
+                migrated = _migrate_legacy_wrist_x_gains(servo_raw) if role == "wrist" else servo_raw
+                merged_servo[role] = ServoProfile.from_dict(migrated)
         profile.servo = merged_servo
 
         incoming_poses = raw.get("service_poses", {})

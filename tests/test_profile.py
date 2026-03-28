@@ -53,6 +53,30 @@ class ProfileTests(unittest.TestCase):
         )
         self.assertEqual(restored.policy.default_backend, "opencv_fsm")
 
+    def test_default_wrist_servo_keeps_wrist_roll_out_of_visual_servo(self):
+        profile = Skills2026Profile.defaults("servo")
+        self.assertNotIn("arm_wrist_roll.pos", profile.servo["wrist"].x_gains)
+
+    def test_legacy_wrist_servo_defaults_are_migrated(self):
+        restored = Skills2026Profile.from_dict(
+            {
+                "profile_name": "legacy-servo",
+                "servo": {
+                    "wrist": {
+                        "x_gains": {
+                            "arm_shoulder_pan.pos": -2.5,
+                            "arm_wrist_roll.pos": 1.5,
+                        },
+                        "y_gains": {
+                            "arm_shoulder_lift.pos": 2.5,
+                            "arm_elbow_flex.pos": -1.0,
+                        },
+                    }
+                },
+            }
+        )
+        self.assertEqual(restored.servo["wrist"].x_gains, {"arm_shoulder_pan.pos": -3.0})
+
 
 if __name__ == "__main__":
     unittest.main()

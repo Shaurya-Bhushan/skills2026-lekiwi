@@ -28,7 +28,7 @@ TASKS: dict[str, MatchTaskSpec] = {
         category="disaster_rescue",
         description="Pick debris pieces and move them to the debris zone.",
         primitive_sequence=(
-            PrimitiveStep("pick_debris", target_slot="debris_zone"),
+            PrimitiveStep("pick_debris"),
             PrimitiveStep("drop_debris", target_slot="debris_zone"),
         ),
         manual_note="Park the base so the arm can reach the debris pile and debris zone cleanly.",
