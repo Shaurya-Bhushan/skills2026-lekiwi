@@ -225,13 +225,9 @@ def build_next_steps(profile: Skills2026Profile) -> str:
         f"2. Run `skills2026 --profile {profile.profile_name} doctor` to confirm hardware and checklist readiness.",
         f"3. When the robot is powered and the cameras are live, run `skills2026 --profile {profile.profile_name} setup` to capture camera calibration and service poses.",
         f"4. Start with `skills2026 --profile {profile.profile_name} teleop` before trying `record` or `competition`.",
+        "5. Keep the default OpenCV/FSM backend until fuse and board tasks are repeatable.",
+        "6. If you still need learning later, record clean demonstrations and train ACT for insertion or contact refinement.",
     ]
-    if profile.policy.default_backend == "smolvla":
-        steps.append(
-            f"5. Before using SmolVLA, install LeRobot extras with `pip install -e \".[smolvla]\"` in the sibling `lerobot` repo and provide a fine-tuned checkpoint."
-        )
-    else:
-        steps.append("5. Keep the default OpenCV/FSM backend until fuse and board tasks are repeatable.")
     return "### Beginner Next Steps\n" + "\n".join(f"- {step}" for step in steps)
 
 

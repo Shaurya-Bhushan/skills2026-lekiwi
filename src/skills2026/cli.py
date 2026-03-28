@@ -7,6 +7,7 @@ from datetime import datetime
 
 from skills2026.logging_utils import configure_logging
 from skills2026.paths import LOGS_DIR, ensure_workspace_dirs
+from skills2026.control.tasks import MISSION_PRESETS
 
 
 def _load_handler(path: str):
@@ -60,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     replay_parser.set_defaults(handler="skills2026.commands.replay:run")
 
     competition_parser = subparsers.add_parser("competition", help="Run competition-mode services.")
-    competition_parser.add_argument("mode_name", choices=["ecu"])
+    competition_parser.add_argument("mode_name", choices=["ecu", "mission"])
     competition_parser.add_argument("--backend", choices=["opencv_fsm", "smolvla"], default=None)
     competition_parser.add_argument(
         "--primitive",
@@ -73,6 +74,12 @@ def build_parser() -> argparse.ArgumentParser:
             "unlock_transformer_bolts",
             "replace_transformer",
         ],
+    )
+    competition_parser.add_argument(
+        "--mission-name",
+        choices=sorted(MISSION_PRESETS),
+        default="full_match",
+        help="Mission preset to run when mode_name is `mission`.",
     )
     competition_parser.add_argument("--target-color", choices=["orange", "green", "blue"], default="green")
     competition_parser.add_argument("--target-slot", default="center")

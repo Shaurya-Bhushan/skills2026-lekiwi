@@ -11,6 +11,15 @@ from skills2026.perception.models import VisionTarget
 
 @dataclass
 class WristPerception:
+    def _foreground_mask(self, frame: np.ndarray) -> np.ndarray:
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+        _, mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        kernel = np.ones((5, 5), dtype=np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        return mask
+
     def _mask_color(self, hsv: np.ndarray, color_name: str) -> np.ndarray:
         lower, upper = HSV_RANGES[color_name]
         return cv2.inRange(hsv, np.array(lower), np.array(upper))
@@ -81,6 +90,29 @@ class WristPerception:
                 metadata={"verified": verified},
             )
 
+        if any(
+            token in primitive_name
+            for token in ("debris", "supply", "worker", "steve", "fan", "autonomous_bot")
+        ):
+            mask = self._foreground_mask(frame)
+            bbox = self._largest_bbox(mask, min_area=180)
+            if bbox is None:
+                return VisionTarget(found=False, camera_role="wrist", label=f"{primitive_name}_precision")
+            x, y, w, h = bbox
+            center = (x + w / 2.0, y + h / 2.0)
+            error_px = (desired_center[0] - center[0], desired_center[1] - center[1])
+            verified = abs(error_px[0]) <= 18 and abs(error_px[1]) <= 18
+            return VisionTarget(
+                found=True,
+                camera_role="wrist",
+                confidence=0.70,
+                center_px=center,
+                error_px=error_px,
+                bbox_xywh=bbox,
+                label=f"{primitive_name}_precision",
+                metadata={"verified": verified},
+            )
+
         gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
         edges = cv2.Canny(gray, 60, 120)
         points = cv2.findNonZero(edges)
@@ -98,4 +130,3 @@ class WristPerception:
             label="transformer_bolt_region",
             metadata={"verified": False},
         )
-

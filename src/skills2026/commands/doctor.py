@@ -78,15 +78,15 @@ def collect_checks(profile) -> list[CheckResult]:
         )
     )
 
-    smolvla_status = inspect_smolvla_runtime()
-    smolvla_required = profile.policy.default_backend == "smolvla"
-    results.append(
-        CheckResult(
-            "smolvla_backend",
-            smolvla_status.ready if smolvla_required else True,
-            smolvla_status.detail if smolvla_status.ready else f"optional backend: {smolvla_status.detail}",
+    if profile.policy.default_backend == "smolvla":
+        smolvla_status = inspect_smolvla_runtime()
+        results.append(
+            CheckResult(
+                "smolvla_backend",
+                smolvla_status.ready,
+                smolvla_status.detail,
+            )
         )
-    )
 
     return results
 

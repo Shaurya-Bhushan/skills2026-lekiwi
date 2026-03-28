@@ -73,6 +73,7 @@ def build_setup_app(default_profile: str = "default"):
                 A beginner-friendly control panel for the two-camera LeKiwi ECU system.
 
                 Use this page to discover your hardware, save a profile, and check whether the robot is ready before you try teleop or competition mode.
+                The recommended beginner path is OpenCV + FSM first, then ACT later if insertion still needs help.
                 """
             )
 
@@ -96,10 +97,10 @@ def build_setup_app(default_profile: str = "default"):
                 info="Use dev_remote while developing on a laptop. Use competition_local on the robot.",
             )
             default_backend = gr.Radio(
-                choices=["opencv_fsm", "smolvla"],
+                choices=["opencv_fsm"],
                 value=initial_form.default_backend,
-                label="Default backend",
-                info="OpenCV/FSM is the safest default. SmolVLA is the optional learned backend.",
+                label="Default competition backend",
+                info="Use the scripted OpenCV + FSM stack first. Add ACT later through training, not as a setup toggle.",
             )
 
         with gr.Tabs():
@@ -153,7 +154,7 @@ def build_setup_app(default_profile: str = "default"):
                     wrist_fps = gr.Number(label="FPS", value=initial_form.wrist_fps, precision=0)
                     wrist_enabled = gr.Checkbox(label="Enabled", value=initial_form.wrist_enabled)
 
-            with gr.Tab("3. Safety and SmolVLA"):
+            with gr.Tab("3. Safety"):
                 gr.Markdown("### Competition checklist")
                 with gr.Row():
                     kill_switch_ready = gr.Checkbox(label="Kill switch ready", value=initial_form.kill_switch_ready)
@@ -164,29 +165,40 @@ def build_setup_app(default_profile: str = "default"):
                         value=initial_form.local_only_mode_confirmed,
                     )
 
-                gr.Markdown("### Optional SmolVLA backend")
-                with gr.Row():
-                    smolvla_enabled = gr.Checkbox(label="Enable SmolVLA option", value=initial_form.smolvla_enabled)
-                    smolvla_device = gr.Dropdown(
-                        choices=["auto", "cpu", "mps", "cuda"],
-                        value=initial_form.smolvla_device,
-                        label="SmolVLA device",
-                    )
-                    smolvla_require_finetuned = gr.Checkbox(
-                        label="Require fine-tuned checkpoint",
-                        value=initial_form.smolvla_require_finetuned,
-                    )
-                smolvla_model_id = gr.Textbox(
-                    label="SmolVLA model ID or path",
-                    value=initial_form.smolvla_model_id,
-                    info="Use your own LeKiwi fine-tuned checkpoint here when you have one.",
+                gr.Markdown(
+                    """
+                    ### Learning later
+                    Keep the competition stack on OpenCV + FSM first.
+
+                    Only add ACT after:
+
+                    - teleop is reliable
+                    - replay is stable
+                    - scripted fuse and board tasks are repeatable
+                    """
                 )
-                smolvla_rename_map_json = gr.Code(
-                    label="SmolVLA rename map (JSON)",
-                    value=initial_form.smolvla_rename_map_json,
-                    language="json",
-                    lines=6,
-                )
+                with gr.Group(visible=False):
+                    with gr.Row():
+                        smolvla_enabled = gr.Checkbox(label="Enable SmolVLA option", value=initial_form.smolvla_enabled)
+                        smolvla_device = gr.Dropdown(
+                            choices=["auto", "cpu", "mps", "cuda"],
+                            value=initial_form.smolvla_device,
+                            label="SmolVLA device",
+                        )
+                        smolvla_require_finetuned = gr.Checkbox(
+                            label="Require fine-tuned checkpoint",
+                            value=initial_form.smolvla_require_finetuned,
+                        )
+                    smolvla_model_id = gr.Textbox(
+                        label="SmolVLA model ID or path",
+                        value=initial_form.smolvla_model_id,
+                    )
+                    smolvla_rename_map_json = gr.Code(
+                        label="SmolVLA rename map (JSON)",
+                        value=initial_form.smolvla_rename_map_json,
+                        language="json",
+                        lines=6,
+                    )
 
             with gr.Tab("4. Save and Check"):
                 status_md = gr.Markdown("### Status\n- No changes saved yet.")

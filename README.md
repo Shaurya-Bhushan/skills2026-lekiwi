@@ -7,8 +7,8 @@ This project is meant for a student team that wants the easiest realistic path:
 - LeKiwi + leader arm
 - two RGB cameras: front and wrist
 - LeRobot as the official robot/data backbone
-- OpenCV + scripted control as the default competition path
-- SmolVLA only as a later experiment, not the day-one plan
+- OpenCV + scripted FSM control as the default competition path
+- ACT later for the few precision/contact steps that still need help
 
 If you know nothing yet, start at **Start Here** below and go in order.
 
@@ -39,7 +39,8 @@ This repo adds:
   - front camera for coarse scene understanding
   - wrist camera for close alignment and verification
 - scripted ECU primitives with graceful fallback to front-only mode
-- an optional SmolVLA backend for later experiments
+- a full match task catalog for the main Ontario scoring buckets
+- an ACT-ready data collection and replay workflow
 - teleop / record / replay helpers that stay close to official LeRobot workflows
 
 ## What This Repo Does Not Do
@@ -50,7 +51,7 @@ This repo does **not**:
 - set motor IDs automatically unless your LeRobot base setup is already correct
 - replace the official LeRobot install/calibration steps
 - guarantee legal competition compliance by itself
-- make SmolVLA work without your own fine-tuned checkpoint
+- train an ACT policy for you automatically
 
 You still need to:
 
@@ -78,7 +79,7 @@ Because of that, the best short-timeline path is:
 2. make boards work second
 3. leave transformers for later
 4. keep OpenCV + scripted control as the baseline
-5. add learning only after the baseline is repeatable
+5. add ACT only after the baseline is repeatable
 
 ## Recommended Build Order
 
@@ -92,14 +93,14 @@ If you are new, do the project in this order:
 6. Run the scripted fuse workflow.
 7. Run the scripted board workflow.
 8. Record data only after teleop and replay are stable.
-9. Add ACT or SmolVLA only after the scripted version is already useful.
+9. Add ACT only after the scripted version is already useful.
 
 Do **not** start with:
 
 - transformers
-- multi-camera learned policies
+- end-to-end learned policies
 - depth cameras
-- end-to-end policies
+- policy experiments before the scripted baseline works
 
 ## Hardware Checklist
 
@@ -157,6 +158,27 @@ The LeKiwi docs say you should do this on both:
 - the robot computer
 - the local laptop or PC
 
+This repo works out of the box with LeKiwi in either of these two setups:
+
+- `lerobot` is already installed in your Python environment
+- this repo is cloned beside a sibling `lerobot/` checkout
+
+Example folder layout:
+
+```text
+robotics/
+  lerobot/
+  skills2026-lekiwi/
+```
+
+If your `lerobot` checkout lives somewhere else, set:
+
+```bash
+export LEROBOT_SRC=/absolute/path/to/lerobot/src
+```
+
+That makes the LeKiwi host and helper commands find LeRobot correctly.
+
 ## Step 2: Find Ports and Configure Motors
 
 Use the official LeRobot tools before using this repo.
@@ -206,13 +228,6 @@ cd skills2026-lekiwi
 python3 -m pip install -e .
 ```
 
-If you later want to experiment with SmolVLA:
-
-```bash
-cd ../lerobot
-python3 -m pip install -e ".[smolvla]"
-```
-
 ## Step 5: Run the Beginner Setup UI
 
 Start the UI:
@@ -232,7 +247,10 @@ In the UI:
 7. save the profile
 8. run the readiness check
 
-Use `smolvla` only later, after the OpenCV version already works.
+The recommended beginner path in this repo is:
+
+- OpenCV + FSM first
+- ACT later
 
 ## Step 6: Capture Live Setup
 
@@ -272,7 +290,6 @@ This checks:
 - robot serial port
 - service poses
 - competition checklist
-- optional SmolVLA readiness
 
 Do not move on until `doctor` is mostly clean.
 
@@ -337,7 +354,7 @@ skills2026 competition ecu --primitive insert_board --target-slot center
 
 You will probably need to adjust your service poses and calibration a few times before board insertion feels clean.
 
-## Step 11: Leave Transformers for Later
+## Step 11: Leave Transformers For Later
 
 Transformers are harder because:
 
@@ -351,7 +368,32 @@ This repo includes transformer primitives, but the intended beginner path is:
 2. boards
 3. only then transformers
 
-## Step 12: Record Data Only After Baseline Works
+## Step 12: Expand To The Full Ontario Match
+
+Once the ECU work is stable, this repo can also sequence the other major Ontario task families:
+
+- debris clearing
+- supply delivery
+- supply orientation
+- ECU fan placement
+- workers standing
+- Steve to lobby
+- autonomous bot placement
+
+Run the full mission system with:
+
+```bash
+skills2026 competition mission --mission-name full_match
+```
+
+Other presets:
+
+```bash
+skills2026 competition mission --mission-name ecu_only
+skills2026 competition mission --mission-name rescue_support
+```
+
+## Step 13: Record Data Only After Baseline Works
 
 Once teleop and scripted control are stable, collect demonstrations:
 
@@ -376,7 +418,7 @@ If replay looks bad, fix:
 
 Do not train around bad data.
 
-## Step 13: Add Learning Later
+## Step 14: Add ACT Later
 
 ### ACT
 
@@ -394,25 +436,6 @@ Use ACT for:
 
 Do **not** use ACT as the first thing you build.
 
-### SmolVLA
-
-This repo also supports SmolVLA as an optional backend:
-
-```bash
-skills2026 competition ecu \
-  --backend smolvla \
-  --primitive insert_fuse \
-  --policy-path YOUR_USER/YOUR_LEKIWI_SMOLVLA
-```
-
-Only do this after:
-
-- your OpenCV baseline works
-- you have your own LeKiwi dataset
-- you have your own fine-tuned checkpoint
-
-SmolVLA is a second option here, not the default competition recommendation.
-
 ## Match-Day Mode
 
 Before competition, switch your profile to:
@@ -426,7 +449,7 @@ Make sure:
 - kill switch is mounted and reachable
 - wiring diagram is printed
 - tabletop stand is ready
-- default backend is still `opencv_fsm` unless your learned policy is already proven
+- default backend is still `opencv_fsm` unless your ACT workflow is already proven
 
 ## Common Commands
 
@@ -440,7 +463,7 @@ skills2026 record insert_fuse
 skills2026 replay default_insert_fuse 0
 skills2026 competition ecu --primitive insert_fuse --target-color green
 skills2026 competition ecu --primitive insert_board --target-slot center
-skills2026 competition ecu --backend smolvla --primitive insert_fuse --policy-path YOUR_USER/YOUR_LEKIWI_SMOLVLA
+skills2026 competition mission --mission-name full_match
 ```
 
 ## If Something Is Going Wrong
@@ -470,7 +493,7 @@ That is why the default path is:
 - official LeRobot / LeKiwi
 - OpenCV
 - scripted FSM primitives
-- SmolVLA only later
+- ACT only after the scripted baseline is dependable
 
 ## Sources
 

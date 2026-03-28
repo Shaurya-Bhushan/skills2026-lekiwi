@@ -31,6 +31,19 @@ class CLITests(unittest.TestCase):
         self.assertEqual(args.port, 9999)
         self.assertTrue(args.no_browser)
 
+    def test_competition_mission_argument(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "competition",
+                "mission",
+                "--mission-name",
+                "full_match",
+            ]
+        )
+        self.assertEqual(args.mode_name, "mission")
+        self.assertEqual(args.mission_name, "full_match")
+
 
 if __name__ == "__main__":
     unittest.main()
