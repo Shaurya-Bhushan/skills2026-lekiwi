@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+data/
+profiles/*.json
+.DS_Store
+.pytest_cache/
+.venv/
