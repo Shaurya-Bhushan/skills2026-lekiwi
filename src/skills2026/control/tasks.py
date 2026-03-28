@@ -148,6 +148,13 @@ TASKS: dict[str, MatchTaskSpec] = {
 
 
 MISSION_PRESETS: dict[str, tuple[str, ...]] = {
+    "ecu_steve_priority": (
+        "repair_fuse_circuit",
+        "repair_board_circuit",
+        "repair_transformer",
+        "deliver_steve",
+        "flip_breaker",
+    ),
     "ecu_only": (
         "repair_fuse_circuit",
         "repair_board_circuit",

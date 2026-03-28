@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from skills2026.hardware import camera_exists, discover_serial_ports, read_single_camera_frame, tcp_port_open
-from skills2026.policy.smolvla import inspect_smolvla_runtime
 from skills2026.profile import load_profile
 from skills2026.robot.safety import checklist_ready
 
@@ -21,7 +20,7 @@ def collect_checks(profile) -> list[CheckResult]:
     results.append(
         CheckResult(
             "default_backend",
-            profile.policy.default_backend in {"opencv_fsm", "smolvla"},
+            profile.policy.default_backend == "opencv_fsm",
             profile.policy.default_backend,
         )
     )
@@ -77,17 +76,6 @@ def collect_checks(profile) -> list[CheckResult]:
             "ready" if checklist_ok else f"missing {', '.join(missing)}",
         )
     )
-
-    if profile.policy.default_backend == "smolvla":
-        smolvla_status = inspect_smolvla_runtime()
-        results.append(
-            CheckResult(
-                "smolvla_backend",
-                smolvla_status.ready,
-                smolvla_status.detail,
-            )
-        )
-
     return results
 
 

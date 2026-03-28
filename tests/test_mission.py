@@ -9,6 +9,15 @@ from skills2026.control.tasks import MISSION_PRESETS, TASKS
 
 
 class MissionCatalogTests(unittest.TestCase):
+    def test_ecu_steve_priority_focuses_on_high_value_arm_tasks(self):
+        mission = set(MISSION_PRESETS["ecu_steve_priority"])
+        self.assertIn("repair_fuse_circuit", mission)
+        self.assertIn("repair_board_circuit", mission)
+        self.assertIn("repair_transformer", mission)
+        self.assertIn("deliver_steve", mission)
+        self.assertIn("flip_breaker", mission)
+        self.assertNotIn("clear_debris", mission)
+
     def test_full_match_covers_all_major_task_families(self):
         full_match = set(MISSION_PRESETS["full_match"])
         self.assertIn("clear_debris", full_match)

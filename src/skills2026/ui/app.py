@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-
 from skills2026.ui.service import (
     SetupFormData,
     apply_detected_defaults,
@@ -73,7 +71,8 @@ def build_setup_app(default_profile: str = "default"):
                 A beginner-friendly control panel for the two-camera LeKiwi ECU system.
 
                 Use this page to discover your hardware, save a profile, and check whether the robot is ready before you try teleop or competition mode.
-                The recommended beginner path is OpenCV + FSM first, then ACT later if insertion still needs help.
+                This repo is focused on Ontario ECU work first: fuses, circuit boards, transformers, and Steve.
+                The recommended beginner path is OpenCV + FSM first, then ACT later if insertion or contact steps still need help.
                 """
             )
 
@@ -174,31 +173,9 @@ def build_setup_app(default_profile: str = "default"):
 
                     - teleop is reliable
                     - replay is stable
-                    - scripted fuse and board tasks are repeatable
+                    - scripted fuse, board, transformer, and Steve tasks are repeatable
                     """
                 )
-                with gr.Group(visible=False):
-                    with gr.Row():
-                        smolvla_enabled = gr.Checkbox(label="Enable SmolVLA option", value=initial_form.smolvla_enabled)
-                        smolvla_device = gr.Dropdown(
-                            choices=["auto", "cpu", "mps", "cuda"],
-                            value=initial_form.smolvla_device,
-                            label="SmolVLA device",
-                        )
-                        smolvla_require_finetuned = gr.Checkbox(
-                            label="Require fine-tuned checkpoint",
-                            value=initial_form.smolvla_require_finetuned,
-                        )
-                    smolvla_model_id = gr.Textbox(
-                        label="SmolVLA model ID or path",
-                        value=initial_form.smolvla_model_id,
-                    )
-                    smolvla_rename_map_json = gr.Code(
-                        label="SmolVLA rename map (JSON)",
-                        value=initial_form.smolvla_rename_map_json,
-                        language="json",
-                        lines=6,
-                    )
 
             with gr.Tab("4. Save and Check"):
                 status_md = gr.Markdown("### Status\n- No changes saved yet.")
@@ -239,11 +216,6 @@ def build_setup_app(default_profile: str = "default"):
             wiring_diagram_ready,
             tabletop_stand_ready,
             local_only_mode_confirmed,
-            smolvla_enabled,
-            smolvla_model_id,
-            smolvla_device,
-            smolvla_require_finetuned,
-            smolvla_rename_map_json,
         ]
 
         profile_outputs = [
@@ -269,11 +241,6 @@ def build_setup_app(default_profile: str = "default"):
             wiring_diagram_ready,
             tabletop_stand_ready,
             local_only_mode_confirmed,
-            smolvla_enabled,
-            smolvla_model_id,
-            smolvla_device,
-            smolvla_require_finetuned,
-            smolvla_rename_map_json,
             profile_summary,
             next_steps,
         ]

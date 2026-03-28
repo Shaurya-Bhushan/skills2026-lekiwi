@@ -133,54 +133,16 @@ class CompetitionChecklist:
         )
 
 
-def _default_smolvla_tasks() -> dict[str, str]:
-    return {
-        "pick_fuse": "Pick up the requested fuse from the tray.",
-        "insert_fuse": "Insert the fuse fully into the matching ECU hole.",
-        "pick_board": "Pick up the requested circuit board from the tray.",
-        "insert_board": "Insert the circuit board fully into the matching ECU slot.",
-        "unlock_transformer_bolts": "Slide the transformer barrel bolts to unlock the transformer.",
-        "replace_transformer": "Insert and seat the transformer in the ECU.",
-    }
-
-
-@dataclass
-class SmolVLAProfile:
-    enabled: bool = True
-    model_id: str = "lerobot/smolvla_base"
-    device: str = "auto"
-    robot_type: str = "lekiwi_client"
-    require_finetuned_checkpoint: bool = True
-    rename_map: dict[str, str] = field(default_factory=dict)
-    task_prompts: dict[str, str] = field(default_factory=_default_smolvla_tasks)
-
-    @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> "SmolVLAProfile":
-        defaults = cls()
-        return cls(
-            enabled=bool(raw.get("enabled", defaults.enabled)),
-            model_id=str(raw.get("model_id", defaults.model_id)),
-            device=str(raw.get("device", defaults.device)),
-            robot_type=str(raw.get("robot_type", defaults.robot_type)),
-            require_finetuned_checkpoint=bool(
-                raw.get("require_finetuned_checkpoint", defaults.require_finetuned_checkpoint)
-            ),
-            rename_map={str(k): str(v) for k, v in raw.get("rename_map", {}).items()},
-            task_prompts={str(k): str(v) for k, v in raw.get("task_prompts", defaults.task_prompts).items()},
-        )
-
-
 @dataclass
 class PolicyProfile:
     default_backend: str = "opencv_fsm"
-    smolvla: SmolVLAProfile = field(default_factory=SmolVLAProfile)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "PolicyProfile":
-        return cls(
-            default_backend=str(raw.get("default_backend", "opencv_fsm")),
-            smolvla=SmolVLAProfile.from_dict(raw.get("smolvla", {})),
-        )
+        backend = str(raw.get("default_backend", "opencv_fsm")).strip() or "opencv_fsm"
+        if backend != "opencv_fsm":
+            backend = "opencv_fsm"
+        return cls(default_backend=backend)
 
 
 @dataclass

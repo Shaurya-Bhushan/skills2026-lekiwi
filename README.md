@@ -1,6 +1,6 @@
 # skills2026-lekiwi
 
-Plug-and-play LeKiwi tooling for the 2026 Skills Ontario ECU workflow.
+Plug-and-play LeKiwi tooling for the 2026 Skills Ontario ECU and Steve workflow.
 
 This project is meant for a student team that wants the easiest realistic path:
 
@@ -39,7 +39,7 @@ This repo adds:
   - front camera for coarse scene understanding
   - wrist camera for close alignment and verification
 - scripted ECU primitives with graceful fallback to front-only mode
-- a full match task catalog for the main Ontario scoring buckets
+- a task catalog centered on ECU repair, transformers, circuit boards, and Steve
 - an ACT-ready data collection and replay workflow
 - teleop / record / replay helpers that stay close to official LeRobot workflows
 
@@ -77,9 +77,10 @@ Because of that, the best short-timeline path is:
 
 1. make fuses work first
 2. make boards work second
-3. leave transformers for later
-4. keep OpenCV + scripted control as the baseline
-5. add ACT only after the baseline is repeatable
+3. make Steve reliable once lobby reach is stable
+4. leave transformers for after fuses and boards
+5. keep OpenCV + scripted control as the baseline
+6. add ACT only after the baseline is repeatable
 
 ## Recommended Build Order
 
@@ -92,8 +93,10 @@ If you are new, do the project in this order:
 5. Get teleop working.
 6. Run the scripted fuse workflow.
 7. Run the scripted board workflow.
-8. Record data only after teleop and replay are stable.
-9. Add ACT only after the scripted version is already useful.
+8. Run the scripted Steve workflow.
+9. Tackle transformers only after fuses and boards are dependable.
+10. Record data only after teleop and replay are stable.
+11. Add ACT only after the scripted version is already useful.
 
 Do **not** start with:
 
@@ -354,7 +357,21 @@ skills2026 competition ecu --primitive insert_board --target-slot center
 
 You will probably need to adjust your service poses and calibration a few times before board insertion feels clean.
 
-## Step 11: Leave Transformers For Later
+## Step 11: Add Steve Once Lobby Reach Is Stable
+
+Steve is a good follow-up arm task after boards because:
+
+- he is a visible, structured object
+- there is no tight insertion step
+- it builds confidence before transformer work
+
+Run:
+
+```bash
+skills2026 competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
+```
+
+## Step 12: Only Then Tackle Transformers
 
 Transformers are harder because:
 
@@ -366,38 +383,28 @@ This repo includes transformer primitives, but the intended beginner path is:
 
 1. fuses
 2. boards
-3. only then transformers
+3. Steve
+4. only then transformers
 
-## Step 12: Expand To The Full Ontario Match
-
-Once the ECU work is stable, this repo can also sequence the other major Ontario task families:
-
-- fallen beam clearing
-- debris clearing
-- supply delivery
-- supply orientation
-- full ECU repair sequences:
-  - remove bad part
-  - discard bad part
-  - pick replacement
-  - install replacement
-- ECU fan placement
-- worker safety checks
-- Steve to lobby
-- breaker flip
-- final-position finish flow
-
-Run the full mission system with:
+Start with the focused ECU + Steve mission:
 
 ```bash
-skills2026 competition mission --mission-name full_match
+skills2026 competition mission --mission-name ecu_steve_priority
 ```
+
+That preset runs:
+
+- fuse repair
+- board repair
+- transformer repair
+- Steve to lobby
+- breaker flip
 
 Other presets:
 
 ```bash
 skills2026 competition mission --mission-name ecu_only
-skills2026 competition mission --mission-name rescue_support
+skills2026 competition mission --mission-name full_match
 ```
 
 ## Step 13: Record Data Only After Baseline Works
@@ -470,7 +477,9 @@ skills2026 record insert_fuse
 skills2026 replay default_insert_fuse 0
 skills2026 competition ecu --primitive insert_fuse --target-color green
 skills2026 competition ecu --primitive insert_board --target-slot center
-skills2026 competition mission --mission-name full_match
+skills2026 competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
+skills2026 competition ecu --primitive replace_transformer --target-slot left
+skills2026 competition mission --mission-name ecu_steve_priority
 ```
 
 ## If Something Is Going Wrong

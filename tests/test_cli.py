@@ -8,20 +8,17 @@ from skills2026.cli import build_parser
 
 
 class CLITests(unittest.TestCase):
-    def test_competition_backend_argument(self):
+    def test_competition_ecu_primitive_argument(self):
         parser = build_parser()
         args = parser.parse_args(
             [
                 "competition",
                 "ecu",
-                "--backend",
-                "smolvla",
                 "--primitive",
-                "insert_fuse",
+                "remove_transformer",
             ]
         )
-        self.assertEqual(args.backend, "smolvla")
-        self.assertEqual(args.primitive, "insert_fuse")
+        self.assertEqual(args.primitive, "remove_transformer")
 
     def test_ui_command_exists(self):
         parser = build_parser()
@@ -38,11 +35,11 @@ class CLITests(unittest.TestCase):
                 "competition",
                 "mission",
                 "--mission-name",
-                "full_match",
+                "ecu_steve_priority",
             ]
         )
         self.assertEqual(args.mode_name, "mission")
-        self.assertEqual(args.mission_name, "full_match")
+        self.assertEqual(args.mission_name, "ecu_steve_priority")
 
 
 if __name__ == "__main__":

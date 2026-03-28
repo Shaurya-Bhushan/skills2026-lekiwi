@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,20 +24,6 @@ def _safe_int(raw: str | int | float, default: int) -> int:
         return int(raw)
     except (TypeError, ValueError):
         return default
-
-
-def _format_json(data: dict[str, str]) -> str:
-    return json.dumps(data, indent=2, sort_keys=True)
-
-
-def _parse_json_map(raw: str) -> dict[str, str]:
-    text = raw.strip()
-    if not text:
-        return {}
-    loaded = json.loads(text)
-    if not isinstance(loaded, dict):
-        raise ValueError("Rename map must be a JSON object.")
-    return {str(k): str(v) for k, v in loaded.items()}
 
 
 def list_profiles() -> list[str]:
@@ -82,11 +67,6 @@ class SetupFormData:
     wiring_diagram_ready: bool
     tabletop_stand_ready: bool
     local_only_mode_confirmed: bool
-    smolvla_enabled: bool
-    smolvla_model_id: str
-    smolvla_device: str
-    smolvla_require_finetuned: bool
-    smolvla_rename_map_json: str
 
     @classmethod
     def from_profile(cls, profile: Skills2026Profile) -> "SetupFormData":
@@ -113,11 +93,6 @@ class SetupFormData:
             wiring_diagram_ready=profile.checklist.wiring_diagram_ready,
             tabletop_stand_ready=profile.checklist.tabletop_stand_ready,
             local_only_mode_confirmed=profile.checklist.local_only_mode_confirmed,
-            smolvla_enabled=profile.policy.smolvla.enabled,
-            smolvla_model_id=profile.policy.smolvla.model_id,
-            smolvla_device=profile.policy.smolvla.device,
-            smolvla_require_finetuned=profile.policy.smolvla.require_finetuned_checkpoint,
-            smolvla_rename_map_json=_format_json(profile.policy.smolvla.rename_map),
         )
 
     def to_profile(self) -> Skills2026Profile:
@@ -147,12 +122,6 @@ class SetupFormData:
         profile.checklist.wiring_diagram_ready = bool(self.wiring_diagram_ready)
         profile.checklist.tabletop_stand_ready = bool(self.tabletop_stand_ready)
         profile.checklist.local_only_mode_confirmed = bool(self.local_only_mode_confirmed)
-
-        profile.policy.smolvla.enabled = bool(self.smolvla_enabled)
-        profile.policy.smolvla.model_id = self.smolvla_model_id.strip() or profile.policy.smolvla.model_id
-        profile.policy.smolvla.device = self.smolvla_device
-        profile.policy.smolvla.require_finetuned_checkpoint = bool(self.smolvla_require_finetuned)
-        profile.policy.smolvla.rename_map = _parse_json_map(self.smolvla_rename_map_json)
         return profile
 
 
@@ -181,11 +150,6 @@ def form_values_from_profile(profile_name: str) -> tuple:
         form.wiring_diagram_ready,
         form.tabletop_stand_ready,
         form.local_only_mode_confirmed,
-        form.smolvla_enabled,
-        form.smolvla_model_id,
-        form.smolvla_device,
-        form.smolvla_require_finetuned,
-        form.smolvla_rename_map_json,
         build_profile_summary(form.to_profile()),
         build_next_steps(form.to_profile()),
     )
@@ -225,8 +189,9 @@ def build_next_steps(profile: Skills2026Profile) -> str:
         f"2. Run `skills2026 --profile {profile.profile_name} doctor` to confirm hardware and checklist readiness.",
         f"3. When the robot is powered and the cameras are live, run `skills2026 --profile {profile.profile_name} setup` to capture camera calibration and service poses.",
         f"4. Start with `skills2026 --profile {profile.profile_name} teleop` before trying `record` or `competition`.",
-        "5. Keep the default OpenCV/FSM backend until fuse and board tasks are repeatable.",
-        "6. If you still need learning later, record clean demonstrations and train ACT for insertion or contact refinement.",
+        f"5. Start with `skills2026 --profile {profile.profile_name} competition mission --mission-name ecu_steve_priority` once your ECU service poses are captured.",
+        "6. Keep the default OpenCV/FSM stack until fuse, board, transformer, and Steve tasks are repeatable.",
+        "7. If you still need learning later, record clean demonstrations and train ACT for insertion or contact refinement.",
     ]
     return "### Beginner Next Steps\n" + "\n".join(f"- {step}" for step in steps)
 

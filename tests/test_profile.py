@@ -40,14 +40,18 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(set(restored.cameras), {"front", "wrist"})
         self.assertEqual(restored.service_poses.keys(), raw["service_poses"].keys())
         self.assertEqual(restored.policy.default_backend, "opencv_fsm")
-        self.assertIn("insert_fuse", restored.policy.smolvla.task_prompts)
 
-
-class PolicyDefaultsTests(unittest.TestCase):
-    def test_smolvla_defaults_are_present(self):
-        profile = Skills2026Profile.defaults("policy")
-        self.assertTrue(profile.policy.smolvla.enabled)
-        self.assertEqual(profile.policy.smolvla.device, "auto")
+    def test_legacy_policy_backend_falls_back_to_opencv(self):
+        restored = Skills2026Profile.from_dict(
+            {
+                "profile_name": "legacy",
+                "policy": {
+                    "default_backend": "smolvla",
+                    "smolvla": {"enabled": True},
+                },
+            }
+        )
+        self.assertEqual(restored.policy.default_backend, "opencv_fsm")
 
 
 if __name__ == "__main__":

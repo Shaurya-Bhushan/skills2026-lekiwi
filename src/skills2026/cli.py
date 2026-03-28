@@ -62,35 +62,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     competition_parser = subparsers.add_parser("competition", help="Run competition-mode services.")
     competition_parser.add_argument("mode_name", choices=["ecu", "mission"])
-    competition_parser.add_argument("--backend", choices=["opencv_fsm", "smolvla"], default=None)
     competition_parser.add_argument(
         "--primitive",
         default="insert_fuse",
         choices=[
+            "remove_fuse",
             "pick_fuse",
             "insert_fuse",
+            "remove_board",
             "pick_board",
             "insert_board",
             "unlock_transformer_bolts",
+            "pick_transformer",
+            "remove_transformer",
             "replace_transformer",
+            "pick_steve",
+            "deliver_steve_to_lobby",
+            "flip_breaker_on",
         ],
     )
     competition_parser.add_argument(
         "--mission-name",
         choices=sorted(MISSION_PRESETS),
-        default="full_match",
+        default="ecu_steve_priority",
         help="Mission preset to run when mode_name is `mission`.",
     )
     competition_parser.add_argument("--target-color", choices=["orange", "green", "blue"], default="green")
     competition_parser.add_argument("--target-slot", default="center")
-    competition_parser.add_argument("--task", default="", help="Task prompt for policy-based backends.")
-    competition_parser.add_argument("--policy-path", default="", help="Optional fine-tuned policy checkpoint path.")
-    competition_parser.add_argument("--policy-device", default="", help="Optional policy device override.")
-    competition_parser.add_argument(
-        "--allow-base-model",
-        action="store_true",
-        help="Allow lerobot/smolvla_base for bring-up experiments even though it is not LeKiwi-specific.",
-    )
     competition_parser.add_argument("--max-cycles", type=int, default=500)
     competition_parser.set_defaults(handler="skills2026.commands.competition:run")
 
