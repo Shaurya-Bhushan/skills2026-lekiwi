@@ -210,6 +210,25 @@ def missing_pickup_validation_poses(profile, scenarios: tuple[PickupValidationSc
     return sorted(name for name in required if not profile.service_poses.get(name))
 
 
+def pickup_validation_pose_warnings(profile, scenarios: tuple[PickupValidationScenario, ...]) -> list[str]:
+    warnings: list[str] = []
+    for scenario in scenarios:
+        spec = PRIMITIVES[scenario.primitive_name]
+        if spec.gripper_value is None:
+            continue
+        action_pose = profile.service_poses.get(spec.action_pose, {})
+        saved_gripper = action_pose.get("arm_gripper.pos")
+        if saved_gripper is None:
+            continue
+        saved_gripper = float(saved_gripper)
+        if abs(saved_gripper - spec.gripper_value) > 5.0:
+            warnings.append(
+                f"{scenario.primitive_name}: action pose `{spec.action_pose}` saves arm_gripper.pos={saved_gripper:.1f} "
+                f"but the primitive commands {spec.gripper_value:.1f}. Re-capture the pose or remove the saved gripper value."
+            )
+    return warnings
+
+
 def default_pickup_report_path(profile_name: str, suite_name: str) -> Path:
     ensure_workspace_dirs()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

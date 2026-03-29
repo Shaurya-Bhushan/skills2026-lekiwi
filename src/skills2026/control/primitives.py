@@ -450,6 +450,9 @@ class PrimitiveController:
             return False
         return all(abs(float(current_pose.get(joint, 0.0)) - float(target_pose[joint])) <= tol for joint in relevant)
 
+    def _pose_without_gripper(self, pose: dict[str, float]) -> dict[str, float]:
+        return {joint: value for joint, value in pose.items() if joint != "arm_gripper.pos"}
+
     def _apply_servo(
         self,
         current_pose: dict[str, float],
@@ -600,7 +603,12 @@ class PrimitiveController:
             command = self._move_towards_pose(current_pose, action_pose, max_step)
             if self.spec.gripper_value is not None:
                 command["arm_gripper.pos"] = self.spec.gripper_value
-            if self._pose_reached(current_pose, action_pose, tol=1.5):
+            pose_target = action_pose
+            if self.spec.gripper_value is not None:
+                # Pickup primitives command the gripper from the primitive spec, not from the
+                # captured service pose. Ignore stale saved gripper values when checking completion.
+                pose_target = self._pose_without_gripper(action_pose)
+            if self._pose_reached(current_pose, pose_target, tol=1.5):
                 if self.spec.gripper_value is not None:
                     if not self.action_hold_started:
                         self.action_hold_cycles_remaining = self.action_hold_cycles_required

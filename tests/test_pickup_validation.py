@@ -12,6 +12,7 @@ from skills2026.control.pickup_validation import (
     default_pickup_report_path,
     get_pickup_validation_scenarios,
     missing_pickup_validation_poses,
+    pickup_validation_pose_warnings,
     save_pickup_validation_report,
 )
 from skills2026.control.primitives import PRIMITIVES
@@ -36,6 +37,20 @@ class PickupValidationTests(unittest.TestCase):
 
         self.assertIn("tray_hover", missing)
         self.assertIn("steve_pick_pose", missing)
+
+    def test_pose_warnings_report_gripper_mismatch(self):
+        profile = Skills2026Profile.defaults("validation")
+        profile.service_poses["tray_hover"] = {"arm_shoulder_pan.pos": 0.0}
+        profile.service_poses["tray_grasp"] = {
+            "arm_shoulder_pan.pos": 0.0,
+            "arm_gripper.pos": 3.0,
+        }
+        profile.service_poses["safe_retract"] = {"arm_shoulder_pan.pos": 0.0}
+
+        warnings = pickup_validation_pose_warnings(profile, get_pickup_validation_scenarios("ecu"))
+
+        self.assertTrue(any("pick_fuse" in warning for warning in warnings))
+        self.assertTrue(any("tray_grasp" in warning for warning in warnings))
 
     def test_runner_collects_results_and_summary(self):
         profile = Skills2026Profile.defaults("validation")
