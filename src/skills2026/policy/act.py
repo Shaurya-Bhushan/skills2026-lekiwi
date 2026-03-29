@@ -7,6 +7,12 @@ from typing import Any
 
 from skills2026.bootstrap import ensure_lerobot_on_path
 from skills2026.paths import DATASETS_DIR
+from skills2026.training import (
+    describe_replay_gate_failure,
+    ensure_manifest_matches_profile,
+    load_dataset_manifest,
+    sync_manifest_from_dataset,
+)
 
 try:  # pragma: no cover - depends on the active runtime
     import torch
@@ -155,6 +161,28 @@ class ACTRunner:
             raise FileNotFoundError(
                 f"No local dataset metadata found at {dataset_root}. "
                 "Record data for this primitive first or pass `--dataset-name`."
+            )
+        manifest = load_dataset_manifest(dataset_root)
+        if manifest is None:
+            raise RuntimeError(
+                f"ACT backend refuses dataset {resolved_dataset_name} because it has no review manifest. "
+                "Record with the current workflow, replay-validate every episode, and run `skills2026 train_act` first."
+            )
+        manifest = sync_manifest_from_dataset(dataset_root, manifest)
+        ensure_manifest_matches_profile(
+            manifest,
+            profile,
+            dataset_name=resolved_dataset_name,
+        )
+        if not manifest.all_recorded_episodes_approved:
+            raise RuntimeError(
+                f"ACT backend refuses dataset {resolved_dataset_name} until every recorded episode has passed replay validation: "
+                f"{describe_replay_gate_failure(manifest)}."
+            )
+        if not manifest.pickup_validation or not manifest.pickup_validation.passed:
+            raise RuntimeError(
+                f"ACT backend refuses dataset {resolved_dataset_name} until a matching pickup_validation gate has passed. "
+                "Run `skills2026 pickup_validation`, then `skills2026 train_act` to stamp the dataset as ACT-ready."
             )
 
         device = _select_device(device_name)

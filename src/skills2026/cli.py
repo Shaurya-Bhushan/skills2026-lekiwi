@@ -70,12 +70,77 @@ def build_parser() -> argparse.ArgumentParser:
     record_parser.add_argument("--fps", type=int, default=10)
     record_parser.add_argument("--episode-time-s", type=int, default=30)
     record_parser.add_argument("--dataset-name", default="")
+    record_parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Append to an existing dataset intentionally. Without this flag, recording refuses to reuse an existing dataset root.",
+    )
     record_parser.set_defaults(handler="skills2026.commands.record:run")
 
     replay_parser = subparsers.add_parser("replay", help="Replay a recorded episode.")
     replay_parser.add_argument("dataset_name")
     replay_parser.add_argument("episode", type=int)
+    replay_parser.add_argument(
+        "--primitive",
+        default="",
+        help="Optional primitive label for the replay validation report. Defaults to the dataset manifest primitive.",
+    )
+    replay_parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="After replay, mark the episode as pass/fail for ACT gating and save a validation report.",
+    )
+    replay_parser.add_argument(
+        "--validation-result",
+        choices=["pass", "fail"],
+        default="",
+        help="Non-interactive replay validation result. Use with `--validate` in scripts.",
+    )
+    replay_parser.add_argument("--notes", default="", help="Optional notes saved with the replay validation result.")
+    replay_parser.add_argument(
+        "--report-path",
+        default="",
+        help="Optional replay validation JSON path. Defaults to data/logs/replay_validation_<dataset>_<episode>.json",
+    )
     replay_parser.set_defaults(handler="skills2026.commands.replay:run")
+
+    train_act_parser = subparsers.add_parser(
+        "train_act",
+        help="Replay-gated ACT training. Refuses datasets that have not been reviewed and pickup-validated.",
+    )
+    train_act_parser.add_argument(
+        "primitive",
+        choices=[
+            "remove_fuse",
+            "pick_fuse",
+            "insert_fuse",
+            "remove_board",
+            "pick_board",
+            "insert_board",
+            "unlock_transformer_bolts",
+            "lock_transformer_bolts",
+            "pick_transformer",
+            "remove_transformer",
+            "replace_transformer",
+            "pick_steve",
+            "deliver_steve_to_lobby",
+        ],
+    )
+    train_act_parser.add_argument("--dataset-name", default="")
+    train_act_parser.add_argument("--policy-device", default="cpu")
+    train_act_parser.add_argument("--steps", type=int, default=20000)
+    train_act_parser.add_argument("--batch-size", type=int, default=8)
+    train_act_parser.add_argument("--output-dir", default="")
+    train_act_parser.add_argument("--job-name", default="")
+    train_act_parser.add_argument("--wandb", action="store_true", help="Enable Weights & Biases during training.")
+    train_act_parser.add_argument("--push-to-hub", action="store_true")
+    train_act_parser.add_argument("--policy-repo-id", default="")
+    train_act_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the resolved lerobot-train command without starting training.",
+    )
+    train_act_parser.set_defaults(handler="skills2026.commands.train_act:run")
 
     pickup_validation_parser = subparsers.add_parser(
         "pickup_validation",

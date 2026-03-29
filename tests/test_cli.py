@@ -83,6 +83,50 @@ class CLITests(unittest.TestCase):
         self.assertTrue(args.fail_fast)
         self.assertTrue(args.no_pause)
 
+    def test_record_append_argument(self):
+        parser = build_parser()
+        args = parser.parse_args(["record", "insert_fuse", "--append"])
+        self.assertEqual(args.command, "record")
+        self.assertTrue(args.append)
+
+    def test_replay_validation_arguments(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "replay",
+                "alpha_insert_fuse",
+                "0",
+                "--validate",
+                "--validation-result",
+                "pass",
+                "--notes",
+                "clean replay",
+            ]
+        )
+        self.assertEqual(args.command, "replay")
+        self.assertTrue(args.validate)
+        self.assertEqual(args.validation_result, "pass")
+        self.assertEqual(args.notes, "clean replay")
+
+    def test_train_act_command_exists(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "train_act",
+                "insert_fuse",
+                "--dataset-name",
+                "alpha_insert_fuse",
+                "--policy-device",
+                "cpu",
+                "--dry-run",
+            ]
+        )
+        self.assertEqual(args.command, "train_act")
+        self.assertEqual(args.primitive, "insert_fuse")
+        self.assertEqual(args.dataset_name, "alpha_insert_fuse")
+        self.assertEqual(args.policy_device, "cpu")
+        self.assertTrue(args.dry_run)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,6 +10,7 @@ from typing import Callable, TextIO
 
 from skills2026.control.primitives import PRIMITIVES
 from skills2026.paths import LOGS_DIR, ensure_workspace_dirs
+from skills2026.training import pickup_setup_signature
 
 
 @dataclass(frozen=True)
@@ -64,6 +65,7 @@ class PickupScenarioSummary:
 @dataclass
 class PickupValidationReport:
     profile_name: str
+    profile_signature: str
     suite_name: str
     trials_per_scenario: int
     created_at: str
@@ -88,6 +90,7 @@ class PickupValidationReport:
     def to_dict(self) -> dict:
         return {
             "profile_name": self.profile_name,
+            "profile_signature": self.profile_signature,
             "suite_name": self.suite_name,
             "trials_per_scenario": self.trials_per_scenario,
             "created_at": self.created_at,
@@ -319,6 +322,7 @@ class PickupValidationRunner:
 
         report = PickupValidationReport(
             profile_name=self.profile.profile_name,
+            profile_signature=pickup_setup_signature(self.profile),
             suite_name=self.suite_name,
             trials_per_scenario=self.trials_per_scenario,
             created_at=datetime.now().isoformat(timespec="seconds"),

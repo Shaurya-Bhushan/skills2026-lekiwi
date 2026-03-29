@@ -712,24 +712,28 @@ That is the intended design:
 Once teleop and scripted control are stable, collect demonstrations:
 
 ```bash
-skills2026 --profile <your-profile> record insert_fuse
+skills2026 --profile <your-profile> record insert_fuse --dataset-name <your-profile>_insert_fuse_session1
 ```
 
 You can also record the other important Ontario primitives:
 
 ```bash
-skills2026 --profile <your-profile> record remove_board
-skills2026 --profile <your-profile> record insert_board
-skills2026 --profile <your-profile> record deliver_steve_to_lobby
-skills2026 --profile <your-profile> record unlock_transformer_bolts
-skills2026 --profile <your-profile> record lock_transformer_bolts
-skills2026 --profile <your-profile> record replace_transformer
+skills2026 --profile <your-profile> record remove_board --dataset-name <your-profile>_remove_board_session1
+skills2026 --profile <your-profile> record insert_board --dataset-name <your-profile>_insert_board_session1
+skills2026 --profile <your-profile> record deliver_steve_to_lobby --dataset-name <your-profile>_steve_session1
+skills2026 --profile <your-profile> record unlock_transformer_bolts --dataset-name <your-profile>_unlock_transformer_session1
+skills2026 --profile <your-profile> record lock_transformer_bolts --dataset-name <your-profile>_lock_transformer_session1
+skills2026 --profile <your-profile> record replace_transformer --dataset-name <your-profile>_replace_transformer_session1
 ```
 
-Then replay them:
+The recording command now refuses to reuse an existing dataset unless you say `--append`.
+That is intentional. It prevents one bad practice run from silently contaminating an older clean dataset.
+
+Then replay and approve every recorded episode before ACT is allowed to touch the data:
 
 ```bash
-skills2026 --profile <your-profile> replay <your-profile>_insert_fuse 0
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse_session1 0 --validate --validation-result pass
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse_session1 1 --validate --validation-result pass
 ```
 
 The LeRobot docs recommend starting with at least **50 episodes** for a simple task and keeping the cameras fixed and the demonstrations consistent.
@@ -742,6 +746,14 @@ If replay looks bad, fix:
 - gripper behavior
 
 Do not train around bad data.
+
+This repo now enforces that rule:
+
+- each dataset is stamped with the exact profile, camera IDs, and calibration signature used to record it
+- replay validation writes pass/fail approvals into that dataset manifest
+- ACT training and ACT inference refuse datasets that are unreviewed, failed, or profile-mismatched
+
+If a replay fails, mark it as failed and either re-record that dataset or start a fresh one. Do not “average out” bad demos with good ones.
 
 ## Step 14: Add ACT Later
 
@@ -776,6 +788,7 @@ In other words:
 - calibration is mandatory
 - service poses are mandatory
 - replay stability is mandatory before training
+- pickup validation is mandatory before ACT is allowed to run
 
 ### What ACT Means In This Repo
 
@@ -790,6 +803,34 @@ ACT is only for the case where you already have:
 - a trained ACT checkpoint
 - a recorded local dataset for the same primitive
 - matching camera names and action layout
+- replay-approved episodes for that dataset
+- a passing pickup-validation gate for the same primitive family
+
+### The Safe ACT Workflow In This Repo
+
+This is the supported path:
+
+1. Run `doctor`.
+2. Record a primitive dataset.
+3. Replay each episode and mark it `pass` or `fail`.
+4. Run `pickup_validation`.
+5. Start ACT training with `train_act`.
+6. Only after training finishes, try `competition --backend act`.
+
+Example:
+
+```bash
+skills2026 --profile <your-profile> doctor
+skills2026 --profile <your-profile> record insert_fuse --dataset-name <your-profile>_insert_fuse_session1
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse_session1 0 --validate --validation-result pass
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse_session1 1 --validate --validation-result pass
+skills2026 --profile <your-profile> pickup_validation --suite ecu --trials 3
+skills2026 --profile <your-profile> train_act insert_fuse --dataset-name <your-profile>_insert_fuse_session1 --policy-device cpu --dry-run
+```
+
+Remove `--dry-run` when you are ready to actually launch LeRobot training.
+
+The `train_act` command uses the official LeRobot `lerobot-train` script underneath, but it refuses to launch until the dataset has passed the replay and pickup gates above.
 
 Run it like this:
 
@@ -798,7 +839,7 @@ skills2026 --profile <your-profile> competition ecu \
   --backend act \
   --primitive insert_fuse \
   --policy-path your_user/your_act_checkpoint \
-  --dataset-name <your-profile>_insert_fuse
+  --dataset-name <your-profile>_insert_fuse_session1
 ```
 
 Or with a local checkpoint path:
@@ -808,7 +849,7 @@ skills2026 --profile <your-profile> competition ecu \
   --backend act \
   --primitive replace_transformer \
   --policy-path /absolute/path/to/pretrained_model \
-  --dataset-name <your-profile>_replace_transformer
+  --dataset-name <your-profile>_replace_transformer_session1
 ```
 
 The ACT backend uses:
@@ -838,6 +879,8 @@ ACT does **not** fix:
 - moved cameras
 - bad calibration
 - bad datasets
+- demos that failed replay
+- datasets recorded under the wrong profile
 
 ## Match-Day Mode
 

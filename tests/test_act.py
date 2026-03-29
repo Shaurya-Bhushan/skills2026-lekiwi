@@ -143,6 +143,7 @@ if "lerobot.cameras.opencv.configuration_opencv" not in sys.modules:
 
 from skills2026.policy import act as act_module
 from skills2026.profile import Skills2026Profile
+from skills2026.training import DatasetManifest, PickupGateStamp, save_dataset_manifest
 
 
 class _DummyIO:
@@ -230,11 +231,56 @@ def _dummy_make_robot_action(action_tensor, features):
 
 
 class ActRunnerTests(unittest.TestCase):
+    def test_act_runner_refuses_unreviewed_dataset(self):
+        profile = Skills2026Profile.defaults("act")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dataset_root = Path(temp_dir) / "default_insert_fuse"
+            meta_dir = dataset_root / "meta"
+            meta_dir.mkdir(parents=True, exist_ok=True)
+            (meta_dir / "info.json").write_text('{"total_episodes": 1}')
+            manifest = DatasetManifest.create(profile, "default_insert_fuse", "insert_fuse")
+            manifest.sync_episode_count(1)
+            save_dataset_manifest(dataset_root, manifest)
+            with patch.object(act_module, "ACT_IMPORT_ERROR", None), \
+                patch.object(act_module, "torch", _DummyTorch, create=True), \
+                patch.object(act_module, "DATASETS_DIR", Path(temp_dir)), \
+                patch.object(act_module, "LeRobotDatasetMetadata", _DummyDatasetMetadata, create=True), \
+                patch.object(act_module, "ACTConfig", _DummyACTConfig, create=True), \
+                patch.object(act_module, "ACTPolicy", _DummyACTPolicy, create=True), \
+                patch.object(act_module, "make_pre_post_processors", _dummy_pre_post_processors, create=True), \
+                patch.object(act_module, "build_inference_frame", _boom_build_inference_frame, create=True), \
+                patch.object(act_module, "make_robot_action", _dummy_make_robot_action, create=True):
+                with self.assertRaises(RuntimeError):
+                    act_module.ACTRunner.from_profile(
+                        profile=profile,
+                        primitive_name="insert_fuse",
+                        policy_path="dummy/checkpoint",
+                        dataset_name="default_insert_fuse",
+                        device_name="cpu",
+                    )
+
     def test_act_runner_stops_base_on_inference_error(self):
         profile = Skills2026Profile.defaults("act")
         with tempfile.TemporaryDirectory() as temp_dir:
             dataset_root = Path(temp_dir) / "default_insert_fuse"
-            dataset_root.mkdir(parents=True, exist_ok=True)
+            meta_dir = dataset_root / "meta"
+            meta_dir.mkdir(parents=True, exist_ok=True)
+            (meta_dir / "info.json").write_text('{"total_episodes": 1}')
+            manifest = DatasetManifest.create(profile, "default_insert_fuse", "insert_fuse")
+            manifest.sync_episode_count(1)
+            manifest.mark_replay_approval(episode_index=0, status="pass", profile=profile)
+            manifest.mark_pickup_validation(
+                PickupGateStamp(
+                    primitive_name="pick_fuse",
+                    suite_name="ecu",
+                    scenario_name="fuse_supply_pickup",
+                    report_path="/tmp/report.json",
+                    report_created_at="2026-03-29T12:00:00",
+                    stamped_at="2026-03-29T12:05:00",
+                    passed=True,
+                )
+            )
+            save_dataset_manifest(dataset_root, manifest)
             with patch.object(act_module, "ACT_IMPORT_ERROR", None), \
                 patch.object(act_module, "torch", _DummyTorch, create=True), \
                 patch.object(act_module, "DATASETS_DIR", Path(temp_dir)), \
