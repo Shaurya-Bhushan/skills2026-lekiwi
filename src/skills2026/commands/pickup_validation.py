@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from skills2026.commands.shared import maybe_start_local_host
+from skills2026.commands.doctor import collect_camera_checks
 from skills2026.control.competition import CompetitionRunner
 from skills2026.control.pickup_validation import (
     PickupValidationRunner,
@@ -30,6 +31,17 @@ def run(args) -> int:
         raise ValueError(
             "Pickup validation refused to run because some saved pickup poses are internally inconsistent:\n- "
             + "\n- ".join(pose_warnings)
+        )
+    camera_checks = collect_camera_checks(profile)
+    camera_failures = [
+        result
+        for result in camera_checks
+        if not result.ok and result.name.endswith(("_camera_present", "_camera_frame", "_camera_framing", "_camera_calibration"))
+    ]
+    if camera_failures:
+        raise ValueError(
+            "Pickup validation cannot start until the live camera setup passes its framing and calibration checks:\n- "
+            + "\n- ".join(f"{result.name}: {result.detail}" for result in camera_failures)
         )
 
     report_path = Path(args.report_path) if args.report_path else default_pickup_report_path(

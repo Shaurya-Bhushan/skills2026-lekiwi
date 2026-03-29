@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from skills2026.hardware import camera_exists, discover_serial_ports, read_single_camera_frame, tcp_port_open
+from skills2026.hardware import (
+    assess_camera_framing,
+    camera_exists,
+    capture_single_camera_frame,
+    discover_serial_ports,
+    tcp_port_open,
+)
 from skills2026.profile import load_profile
 from skills2026.robot.safety import checklist_ready
 
@@ -39,21 +45,9 @@ def collect_checks(profile) -> list[CheckResult]:
                 profile.robot_serial_port in serial_ports,
                 profile.robot_serial_port,
             )
-        )
+    )
 
-    for role, camera in profile.cameras.items():
-        exists = camera_exists(camera.source_id)
-        results.append(CheckResult(f"{role}_camera_present", exists, str(camera.source_id)))
-        if exists:
-            ok, detail = read_single_camera_frame(camera.source_id, camera.width, camera.height, camera.fps)
-            results.append(CheckResult(f"{role}_camera_frame", ok, detail))
-        results.append(
-            CheckResult(
-                f"{role}_camera_calibration",
-                camera.calibration.calibrated,
-                "ready" if camera.calibration.calibrated else "not calibrated",
-            )
-        )
+    results.extend(collect_camera_checks(profile))
 
     enabled_sources = {
         role: str(camera.source_id)
@@ -90,6 +84,27 @@ def collect_checks(profile) -> list[CheckResult]:
             "ready" if checklist_ok else f"missing {', '.join(missing)}",
         )
     )
+    return results
+
+
+def collect_camera_checks(profile) -> list[CheckResult]:
+    results: list[CheckResult] = []
+    for role, camera in profile.cameras.items():
+        exists = camera_exists(camera.source_id)
+        results.append(CheckResult(f"{role}_camera_present", exists, str(camera.source_id)))
+        if exists:
+            ok, frame, detail = capture_single_camera_frame(camera.source_id, camera.width, camera.height, camera.fps)
+            results.append(CheckResult(f"{role}_camera_frame", ok, detail))
+            if ok and frame is not None:
+                framing_ok, framing_detail = assess_camera_framing(frame, role)
+                results.append(CheckResult(f"{role}_camera_framing", framing_ok, framing_detail))
+        results.append(
+            CheckResult(
+                f"{role}_camera_calibration",
+                camera.calibration.calibrated,
+                "ready" if camera.calibration.calibrated else "not calibrated",
+            )
+        )
     return results
 
 

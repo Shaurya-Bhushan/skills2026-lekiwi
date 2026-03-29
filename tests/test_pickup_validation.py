@@ -3,7 +3,9 @@ import json
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -15,6 +17,8 @@ from skills2026.control.pickup_validation import (
     pickup_validation_pose_warnings,
     save_pickup_validation_report,
 )
+from skills2026.commands.pickup_validation import run as run_pickup_validation
+from skills2026.commands.doctor import CheckResult
 from skills2026.control.primitives import PRIMITIVES
 from skills2026.profile import Skills2026Profile
 
@@ -122,6 +126,49 @@ class PickupValidationTests(unittest.TestCase):
         target = default_pickup_report_path("default", "core")
         self.assertIn("pickup_validation_default_core_", target.name)
         self.assertEqual(target.suffix, ".json")
+
+    @patch("skills2026.commands.pickup_validation.maybe_start_local_host")
+    @patch("skills2026.commands.pickup_validation.collect_camera_checks")
+    @patch("skills2026.commands.pickup_validation.load_profile")
+    def test_command_refuses_to_start_when_camera_framing_fails(
+        self,
+        mock_load_profile,
+        mock_collect_camera_checks,
+        mock_maybe_start_local_host,
+    ):
+        profile = Skills2026Profile.defaults("validation")
+        for spec in PRIMITIVES.values():
+            profile.service_poses[spec.coarse_pose] = {"arm_shoulder_pan.pos": 0.0}
+            profile.service_poses[spec.action_pose] = {"arm_shoulder_pan.pos": 1.0}
+            profile.service_poses[spec.retract_pose] = {"arm_shoulder_pan.pos": 0.0}
+
+        mock_load_profile.return_value = profile
+        mock_collect_camera_checks.return_value = [
+            CheckResult("front_camera_present", True, "0"),
+            CheckResult("front_camera_frame", True, "frame shape=(480, 640, 3)"),
+            CheckResult("front_camera_framing", False, "front camera framing looks weak"),
+            CheckResult("front_camera_calibration", True, "ready"),
+            CheckResult("wrist_camera_present", True, "1"),
+            CheckResult("wrist_camera_frame", True, "frame shape=(480, 640, 3)"),
+            CheckResult("wrist_camera_framing", True, "wrist camera framing looks usable"),
+            CheckResult("wrist_camera_calibration", True, "ready"),
+        ]
+
+        with self.assertRaises(ValueError) as ctx:
+            run_pickup_validation(
+                SimpleNamespace(
+                    profile="validation",
+                    suite="core",
+                    trials=1,
+                    max_cycles=5,
+                    fail_fast=False,
+                    no_pause=True,
+                    report_path="",
+                )
+            )
+
+        mock_maybe_start_local_host.assert_not_called()
+        self.assertIn("camera setup passes its framing and calibration checks", str(ctx.exception))
 
 
 if __name__ == "__main__":

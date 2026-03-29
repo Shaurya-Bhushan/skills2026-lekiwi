@@ -552,6 +552,8 @@ That suite checks:
 
 If it refuses to start, that usually means one of the saved pickup poses is internally inconsistent, especially a gripper position saved in the profile that does not match what the primitive actually commands. Re-capture the pose and try again.
 
+It can also refuse to start if the live camera framing check fails. That means the camera is alive, but the current view is probably too dark, too blurry, too blank, or pointed at the wrong part of the field. Fix the mount, lighting, or camera ID before trying again.
+
 How to interpret the result:
 
 - if every trial passes, your pickup path is in a good place
