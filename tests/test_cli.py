@@ -64,6 +64,25 @@ class CLITests(unittest.TestCase):
         self.assertEqual(args.mode_name, "mission")
         self.assertEqual(args.mission_name, "ecu_steve_priority")
 
+    def test_pickup_validation_command_exists(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "pickup_validation",
+                "--suite",
+                "ecu",
+                "--trials",
+                "4",
+                "--fail-fast",
+                "--no-pause",
+            ]
+        )
+        self.assertEqual(args.command, "pickup_validation")
+        self.assertEqual(args.suite, "ecu")
+        self.assertEqual(args.trials, 4)
+        self.assertTrue(args.fail_fast)
+        self.assertTrue(args.no_pause)
+
 
 if __name__ == "__main__":
     unittest.main()

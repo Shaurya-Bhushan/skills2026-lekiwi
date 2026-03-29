@@ -518,6 +518,50 @@ What success looks like:
 
 If teleop is not solid, do not start data collection yet.
 
+## Step 8.5: Run Pickup Validation
+
+Before trusting the robot on real pickup tasks, run the built-in pickup stress test:
+
+```bash
+skills2026 pickup_validation --suite core --trials 3
+```
+
+What this does:
+
+- repeats the pickup routine several times
+- checks the exact failure modes that usually break RGB pickup:
+  - one easy object
+  - two similar nearby objects
+  - wrist-camera motion during final approach
+  - partial occlusion near grasp
+  - slightly changed lighting
+- writes a JSON report into `data/logs/`
+
+Use the ECU-focused suite once the generic pickup path is stable:
+
+```bash
+skills2026 pickup_validation --suite ecu --trials 3
+```
+
+That suite checks:
+
+- `pick_fuse`
+- `pick_board`
+- `pick_transformer`
+- `pick_steve`
+
+How to interpret the result:
+
+- if every trial passes, your pickup path is in a good place
+- if any trial fails, do **not** jump straight to training
+- first fix:
+  - service poses
+  - camera mount stability
+  - exposure / white balance
+  - scene reset consistency
+
+This is the fastest way to catch “it worked once but not reliably” problems before they waste a practice session.
+
 ## Step 9: Start With Fuses
 
 This is the first Ontario Skills ECU task you should automate.
@@ -822,6 +866,8 @@ skills2026 setup --skip-live
 skills2026 setup
 skills2026 doctor
 skills2026 teleop
+skills2026 pickup_validation --suite core --trials 3
+skills2026 pickup_validation --suite ecu --trials 3
 skills2026 record insert_fuse
 skills2026 replay default_insert_fuse 0
 skills2026 competition ecu --primitive insert_fuse --target-color green

@@ -76,6 +76,45 @@ def build_parser() -> argparse.ArgumentParser:
     replay_parser.add_argument("episode", type=int)
     replay_parser.set_defaults(handler="skills2026.commands.replay:run")
 
+    pickup_validation_parser = subparsers.add_parser(
+        "pickup_validation",
+        help="Run repeated pickup stress tests and save a validation report.",
+    )
+    pickup_validation_parser.add_argument(
+        "--suite",
+        choices=["core", "ecu", "all"],
+        default="core",
+        help="`core` checks the generic pickup failure modes. `ecu` checks the main Ontario pickup primitives.",
+    )
+    pickup_validation_parser.add_argument(
+        "--trials",
+        type=int,
+        default=3,
+        help="How many repeated trials to run for each scenario.",
+    )
+    pickup_validation_parser.add_argument(
+        "--max-cycles",
+        type=int,
+        default=500,
+        help="Max control cycles per primitive run.",
+    )
+    pickup_validation_parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop the validation suite as soon as one trial fails.",
+    )
+    pickup_validation_parser.add_argument(
+        "--no-pause",
+        action="store_true",
+        help="Do not pause for scene reset between trials, even in an interactive terminal.",
+    )
+    pickup_validation_parser.add_argument(
+        "--report-path",
+        default="",
+        help="Optional JSON report path. Defaults to data/logs/pickup_validation_<timestamp>.json",
+    )
+    pickup_validation_parser.set_defaults(handler="skills2026.commands.pickup_validation:run")
+
     competition_parser = subparsers.add_parser("competition", help="Run competition-mode services.")
     competition_parser.add_argument("mode_name", choices=["ecu", "mission"])
     competition_parser.add_argument(
