@@ -131,6 +131,25 @@ class FSMTests(unittest.TestCase):
         self.assertEqual(third.message, "grasp pose reached, retracting to verify pickup")
         self.assertEqual(controller.fsm.state, PrimitiveState.RETRACT)
 
+    def test_pickup_action_pose_ignores_stale_saved_gripper_value(self):
+        profile = Skills2026Profile.defaults("fsm")
+        action_pose = _pose(5.0)
+        action_pose["arm_gripper.pos"] = 3.0
+        profile.service_poses["debris_pick_pose"] = action_pose
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.GRASP_OR_INSERT
+        current = _pose(5.0)
+        current["arm_gripper.pos"] = 25.0
+
+        first = controller.step(current, DetectionBundle(), wrist_allowed=True)
+        second = controller.step(current, DetectionBundle(), wrist_allowed=True)
+        third = controller.step(current, DetectionBundle(), wrist_allowed=True)
+
+        self.assertEqual(first.message, "holding action pose to secure grasp")
+        self.assertEqual(second.message, "holding action pose to secure grasp")
+        self.assertEqual(third.message, "grasp pose reached, retracting to verify pickup")
+        self.assertEqual(controller.fsm.state, PrimitiveState.RETRACT)
+
     def test_pickup_verifies_after_retract_with_fresh_wrist_target(self):
         profile = Skills2026Profile.defaults("fsm")
         profile.service_poses["debris_pick_pose"] = _pose(5.0)

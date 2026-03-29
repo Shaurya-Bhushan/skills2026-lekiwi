@@ -550,6 +550,8 @@ That suite checks:
 - `pick_transformer`
 - `pick_steve`
 
+If it refuses to start, that usually means one of the saved pickup poses is internally inconsistent, especially a gripper position saved in the profile that does not match what the primitive actually commands. Re-capture the pose and try again.
+
 How to interpret the result:
 
 - if every trial passes, your pickup path is in a good place

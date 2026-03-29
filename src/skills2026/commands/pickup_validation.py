@@ -10,6 +10,7 @@ from skills2026.control.pickup_validation import (
     default_pickup_report_path,
     get_pickup_validation_scenarios,
     missing_pickup_validation_poses,
+    pickup_validation_pose_warnings,
     save_pickup_validation_report,
 )
 from skills2026.profile import load_profile
@@ -23,6 +24,12 @@ def run(args) -> int:
         raise ValueError(
             "Pickup validation cannot start because these service poses are still empty: "
             + ", ".join(missing_poses)
+        )
+    pose_warnings = pickup_validation_pose_warnings(profile, scenarios)
+    if pose_warnings:
+        raise ValueError(
+            "Pickup validation refused to run because some saved pickup poses are internally inconsistent:\n- "
+            + "\n- ".join(pose_warnings)
         )
 
     report_path = Path(args.report_path) if args.report_path else default_pickup_report_path(
