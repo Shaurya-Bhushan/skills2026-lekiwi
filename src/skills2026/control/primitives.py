@@ -345,20 +345,21 @@ class PrimitiveController:
         coarse_fresh = bool(coarse and coarse.found and not coarse.metadata.get("stale"))
         tracked_coarse = bool(coarse_fresh and "tracked" in str(coarse.metadata.get("selected_via", "")))
         same_source = False
+        coarse_displacement = 0.0
+        coarse_area_ratio_ok = True
         if coarse_fresh and coarse.center_px is not None and self.pre_action_coarse_center is not None:
             coarse_area = self._bbox_area(coarse.bbox_xywh)
-            area_ratio_ok = True
             if self.pre_action_coarse_bbox_area is not None and coarse_area is not None and self.pre_action_coarse_bbox_area > 0.0:
                 area_ratio = coarse_area / self.pre_action_coarse_bbox_area
-                area_ratio_ok = (
+                coarse_area_ratio_ok = (
                     self.pickup_verify_area_floor_ratio
                     <= area_ratio
                     <= self.pickup_source_area_ratio_max
                 )
+            coarse_displacement = self._distance(self.pre_action_coarse_center, coarse.center_px)
             same_source = (
-                self._distance(self.pre_action_coarse_center, coarse.center_px)
-                < self.pickup_verify_coarse_displacement_px
-                and area_ratio_ok
+                coarse_displacement < self.pickup_verify_coarse_displacement_px
+                and coarse_area_ratio_ok
             )
 
         if fine is None or not fine.found or fine.metadata.get("stale"):
@@ -372,7 +373,11 @@ class PrimitiveController:
                         return "fail", "pickup source still occupied after retract"
                     return "wait", "pickup source still looks occupied"
 
-                if tracked_coarse:
+                if (
+                    tracked_coarse
+                    and coarse_displacement >= self.pickup_verify_coarse_displacement_px
+                    and coarse_area_ratio_ok
+                ):
                     self.pickup_verify_hits = 0
                     self.pickup_verify_fail_cycles = 0
                     self.pickup_source_present_cycles = 0
