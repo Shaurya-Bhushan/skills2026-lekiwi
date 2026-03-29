@@ -12,6 +12,21 @@ This project is meant for a student team that wants the easiest realistic path:
 
 If you know nothing yet, start at **Start Here** below and go in order.
 
+## Safest Workflow
+
+If you only want the safest supported workflow, do this:
+
+1. Run `setup` and save one stable profile.
+2. Run `doctor` every practice day before moving the arm.
+3. Use `teleop` until the robot, gripper, and cameras look normal.
+4. Use the default `opencv_fsm` backend first.
+5. Record only after the scripted behavior is already close.
+6. Replay and approve every recorded episode before ACT.
+7. Run `pickup_validation` after any camera, calibration, or service-pose change.
+8. Use `train_act` only after replay and pickup validation both pass.
+
+If you skip steps 5 to 7, the repo will now block ACT on purpose.
+
 ## Start Here
 
 This repo does **not** replace the official rules or official LeRobot setup docs.
@@ -82,6 +97,24 @@ The goal is:
 2. save it
 3. reuse it every practice session
 4. keep the daily workflow simple for students
+
+## The One Big Rule
+
+Do **not** train around a bad setup.
+
+If the robot is misaligned, the wrist camera moved, the lighting changed a lot, or the service poses are stale, the correct fix is:
+
+1. fix the setup
+2. rerun `doctor`
+3. rerun `pickup_validation`
+4. then record again
+
+The wrong fix is:
+
+1. keep recording
+2. hope ACT will learn around the mistake
+
+This repo is designed to force the first path, not the second.
 
 ## What This Repo Does
 
@@ -729,7 +762,27 @@ skills2026 --profile <your-profile> record replace_transformer --dataset-name <y
 The recording command now refuses to reuse an existing dataset unless you say `--append`.
 That is intentional. It prevents one bad practice run from silently contaminating an older clean dataset.
 
-Then replay and approve every recorded episode before ACT is allowed to touch the data:
+### The Safe Record -> Replay -> Train Path
+
+Use one dataset name per recording session.
+
+Good:
+
+```bash
+<your-profile>_insert_fuse_session1
+<your-profile>_insert_fuse_session2
+<your-profile>_replace_transformer_session1
+```
+
+Bad:
+
+```bash
+<your-profile>_insert_fuse
+```
+
+The session-style names are easier to review, easier to throw away, and much safer for beginners.
+
+Then replay and approve **every** recorded episode before ACT is allowed to touch the data:
 
 ```bash
 skills2026 --profile <your-profile> replay <your-profile>_insert_fuse_session1 0 --validate --validation-result pass
@@ -754,6 +807,26 @@ This repo now enforces that rule:
 - ACT training and ACT inference refuse datasets that are unreviewed, failed, or profile-mismatched
 
 If a replay fails, mark it as failed and either re-record that dataset or start a fresh one. Do not “average out” bad demos with good ones.
+
+### What Counts As A Good Replay
+
+A replay is good enough to approve only if:
+
+- the arm follows the intended path closely
+- the gripper closes and opens when expected
+- the object stays the intended target
+- the wrist camera does not cause the controller to think the object moved when the camera moved
+- the pickup or insertion still makes sense after retract
+
+Mark the replay as `fail` if:
+
+- the robot vibrates in place
+- the wrist twists and stops unexpectedly
+- the robot switches to the wrong object
+- the object is still sitting in the original place after the replay
+- the path is clearly based on stale service poses
+
+If you are unsure, mark it `fail` and re-record.
 
 ## Step 14: Add ACT Later
 
@@ -817,6 +890,20 @@ This is the supported path:
 5. Start ACT training with `train_act`.
 6. Only after training finishes, try `competition --backend act`.
 
+### What `train_act` Actually Checks
+
+`train_act` does **not** just start training because a folder exists.
+
+It checks that:
+
+- the dataset belongs to the active profile
+- the dataset was recorded under the same camera/calibration signature
+- every recorded episode was replay-reviewed
+- none of those replay reviews failed
+- the latest matching `pickup_validation` passed for the current physical setup
+
+If any of those are false, training is blocked on purpose.
+
 Example:
 
 ```bash
@@ -831,6 +918,21 @@ skills2026 --profile <your-profile> train_act insert_fuse --dataset-name <your-p
 Remove `--dry-run` when you are ready to actually launch LeRobot training.
 
 The `train_act` command uses the official LeRobot `lerobot-train` script underneath, but it refuses to launch until the dataset has passed the replay and pickup gates above.
+
+### When To Re-Run `pickup_validation`
+
+Run `pickup_validation` again if any of these change:
+
+- front camera mount
+- wrist camera mount
+- camera ID after reboot/replug
+- camera calibration
+- lighting in the workspace
+- gripper hardware
+- service poses
+- servo gains
+
+This matters because the pickup gate is tied to the physical setup, not just the profile name.
 
 Run it like this:
 
@@ -916,6 +1018,33 @@ That is the real plug-and-play goal of this repo:
 - not zero setup forever
 - but repeatable daily bring-up with the saved profile
 
+## How To Avoid The “Object Moved But It Was Just The Camera” Error
+
+This was one of the main real-world problems.
+
+What the problem looks like:
+
+- the wrist camera moves because the wrist joint moved
+- the image shifts
+- the system thinks the object moved
+- the robot twists, vibrates, retries, or stops
+
+How to reduce the chance of that happening:
+
+1. Keep the wrist camera mount rigid.
+2. Lock exposure and white balance if your camera supports it.
+3. Re-capture service poses after any gripper or camera change.
+4. Run `pickup_validation --suite core` before trusting pickup again.
+5. Record data only after `pickup_validation` is passing.
+6. Replay recorded episodes and fail anything that shows wrist-camera confusion.
+
+This repo also helps in code:
+
+- wrist settle time is built in
+- replay approval is required before ACT
+- stale pickup-validation results do not unlock ACT for a changed setup
+- datasets are tied to the profile/camera/calibration signature they were recorded under
+
 ## Common Commands
 
 ```bash
@@ -926,16 +1055,17 @@ skills2026 --profile <your-profile> doctor
 skills2026 --profile <your-profile> teleop
 skills2026 --profile <your-profile> pickup_validation --suite core --trials 3
 skills2026 --profile <your-profile> pickup_validation --suite ecu --trials 3
-skills2026 --profile <your-profile> record insert_fuse
-skills2026 --profile <your-profile> record unlock_transformer_bolts
-skills2026 --profile <your-profile> record lock_transformer_bolts
-skills2026 --profile <your-profile> replay <your-profile>_insert_fuse 0
+skills2026 --profile <your-profile> record insert_fuse --dataset-name <your-profile>_insert_fuse_session1
+skills2026 --profile <your-profile> record unlock_transformer_bolts --dataset-name <your-profile>_unlock_transformer_session1
+skills2026 --profile <your-profile> record lock_transformer_bolts --dataset-name <your-profile>_lock_transformer_session1
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse_session1 0 --validate --validation-result pass
+skills2026 --profile <your-profile> train_act insert_fuse --dataset-name <your-profile>_insert_fuse_session1 --policy-device cpu --dry-run
 skills2026 --profile <your-profile> competition ecu --primitive insert_fuse --target-color green
 skills2026 --profile <your-profile> competition ecu --primitive insert_board --target-slot center
 skills2026 --profile <your-profile> competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
 skills2026 --profile <your-profile> competition ecu --primitive replace_transformer --target-slot left
 skills2026 --profile <your-profile> competition mission --mission-name ecu_steve_priority
-skills2026 --profile <your-profile> competition ecu --backend act --primitive insert_fuse --policy-path your_user/your_act_checkpoint --dataset-name <your-profile>_insert_fuse
+skills2026 --profile <your-profile> competition ecu --backend act --primitive insert_fuse --policy-path your_user/your_act_checkpoint --dataset-name <your-profile>_insert_fuse_session1
 ```
 
 ## If Something Is Going Wrong
@@ -949,6 +1079,35 @@ Check these first:
 5. Did the camera mount move?
 6. Are the service poses still valid?
 7. Are you accidentally trying to solve transformers before fuses work?
+
+Then check the workflow itself:
+
+8. Did you record into a fresh session dataset instead of mixing old and new data?
+9. Did you replay-review every episode before ACT?
+10. Did the latest `pickup_validation` pass for the current setup?
+11. Are you accidentally using an ACT checkpoint trained on a different dataset layout?
+
+### If Pickup Is Failing
+
+Do this in order:
+
+1. Run `doctor`.
+2. Run `pickup_validation --suite core`.
+3. Re-check front and wrist camera framing.
+4. Re-check the saved pickup and retract poses.
+5. Re-run the primitive scripted, without ACT.
+6. Only after that, record again.
+
+### If ACT Is Refusing To Start
+
+That usually means one of these:
+
+- the dataset was never replay-approved
+- one episode was marked `fail`
+- the dataset belongs to a different profile or camera/calibration signature
+- the latest pickup-validation report does not match the current setup
+
+That is expected behavior. Fix the setup or the dataset first, then retry.
 
 ## Project Philosophy
 
