@@ -195,7 +195,7 @@ class FSMTests(unittest.TestCase):
             camera_role="front",
             center_px=(130.0, 70.0),
             bbox_xywh=(110, 50, 24, 24),
-            metadata={},
+            metadata={"selected_via": "tracked"},
         )
 
         first = controller.step(_pose(0.0), DetectionBundle(coarse_target=coarse), wrist_allowed=True)
@@ -204,6 +204,46 @@ class FSMTests(unittest.TestCase):
         self.assertEqual(first.message, "pickup verification confirming carried object in front view")
         self.assertTrue(second.done)
         self.assertEqual(second.message, "pickup verification passed from front-camera carry tracking")
+
+    def test_pickup_fails_if_front_still_sees_object_at_source(self):
+        profile = Skills2026Profile.defaults("fsm")
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.VERIFY
+        controller.pre_action_coarse_bbox_area = 400.0
+        controller.pre_action_coarse_center = (70.0, 70.0)
+        coarse = VisionTarget(
+            found=True,
+            camera_role="front",
+            center_px=(76.0, 72.0),
+            bbox_xywh=(58, 58, 20, 20),
+            metadata={},
+        )
+
+        first = controller.step(_pose(0.0), DetectionBundle(coarse_target=coarse), wrist_allowed=True)
+        second = controller.step(_pose(0.0), DetectionBundle(coarse_target=coarse), wrist_allowed=True)
+
+        self.assertEqual(first.message, "pickup source still looks occupied")
+        self.assertEqual(controller.fsm.state, PrimitiveState.RETRY_OR_ABORT)
+        self.assertEqual(second.message, "pickup source still occupied after retract")
+
+    def test_pickup_does_not_immediately_pass_from_untracked_front_distractor(self):
+        profile = Skills2026Profile.defaults("fsm")
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.VERIFY
+        controller.pre_action_coarse_bbox_area = 400.0
+        controller.pre_action_coarse_center = (70.0, 70.0)
+        distractor = VisionTarget(
+            found=True,
+            camera_role="front",
+            center_px=(130.0, 70.0),
+            bbox_xywh=(110, 50, 24, 24),
+            metadata={"selected_via": "desired_center"},
+        )
+
+        decision = controller.step(_pose(0.0), DetectionBundle(coarse_target=distractor), wrist_allowed=True)
+
+        self.assertEqual(decision.message, "pickup verification waiting for front or wrist confirmation")
+        self.assertEqual(controller.fsm.state, PrimitiveState.VERIFY)
 
 
 if __name__ == "__main__":

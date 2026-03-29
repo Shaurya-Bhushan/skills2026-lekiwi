@@ -42,7 +42,21 @@ def _candidate_lerobot_src_paths() -> list[Path]:
 def ensure_lerobot_on_path() -> Path:
     try:
         import lerobot  # noqa: F401
-        return Path(lerobot.__file__).resolve().parents[1]
+
+        lerobot_file = getattr(lerobot, "__file__", None)
+        if lerobot_file:
+            return Path(lerobot_file).resolve().parents[1]
+        lerobot_path = getattr(lerobot, "__path__", None)
+        if lerobot_path:
+            location = next(iter(lerobot_path), None)
+            if location:
+                candidate = Path(location).resolve()
+                return candidate.parent if candidate.name == "lerobot" else _normalize_src_path(candidate)
+        spec = getattr(lerobot, "__spec__", None)
+        if spec and spec.submodule_search_locations:
+            candidate = Path(next(iter(spec.submodule_search_locations))).resolve()
+            return candidate.parent if candidate.name == "lerobot" else _normalize_src_path(candidate)
+        return Path.cwd()
     except ModuleNotFoundError:
         pass
 
