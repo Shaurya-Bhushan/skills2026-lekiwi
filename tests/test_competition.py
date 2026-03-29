@@ -118,6 +118,11 @@ class _FakeController:
         )()
 
 
+class _ExplodingController(_FakeController):
+    def step(self, current_pose, detections, wrist_allowed):
+        raise RuntimeError("boom")
+
+
 class _FakePerception:
     def analyze(self, *args, **kwargs):
         return None
@@ -160,6 +165,75 @@ class CompetitionTests(unittest.TestCase):
         self.assertEqual(len(io.stop_args), 1)
         self.assertIsNotNone(io.stop_args[0])
         self.assertEqual(io.stop_args[0]["arm_wrist_roll.pos"], 5.0)
+
+    def test_exception_still_stops_base(self):
+        io = _FakeIO()
+        runner = CompetitionRunner(
+            io=io,
+            controller=_ExplodingController(),
+            front=_FakePerception(),
+            wrist=_FakePerception(),
+            scheduler=_FakeScheduler(),
+            safety=_FakeSafety(),
+        )
+
+        with self.assertRaises(RuntimeError):
+            runner.run(max_cycles=1)
+
+        self.assertEqual(len(io.stop_args), 1)
+        self.assertIsNotNone(io.stop_args[0])
+
+    def test_wrist_precision_request_is_not_skipped_when_wrist_frame_is_missing(self):
+        class _PrecisionScheduler:
+            def __init__(self):
+                self.front_fps_scale = 1.0
+                self.enabled = False
+
+            def request_precision(self, enabled):
+                self.enabled = enabled
+
+            def should_use_wrist(self):
+                return self.enabled
+
+            def observe_loop_duration(self, dt_s):
+                self.last_dt_s = dt_s
+
+        class _DoneController(_FakeController):
+            def __init__(self):
+                super().__init__()
+                self.fsm.state = PrimitiveState.SWITCH_TO_WRIST_PRECISION
+                self.last_wrist_allowed = None
+
+            def step(self, current_pose, detections, wrist_allowed):
+                self.last_wrist_allowed = wrist_allowed
+                return type(
+                    "Decision",
+                    (),
+                    {
+                        "action": current_pose,
+                        "message": "done",
+                        "done": True,
+                        "failed": False,
+                    },
+                )()
+
+        io = _FakeIO()
+        controller = _DoneController()
+        scheduler = _PrecisionScheduler()
+        runner = CompetitionRunner(
+            io=io,
+            controller=controller,
+            front=_FakePerception(),
+            wrist=_FakePerception(),
+            scheduler=scheduler,
+            safety=_FakeSafety(),
+        )
+
+        exit_code = runner.run(max_cycles=1)
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(scheduler.enabled)
+        self.assertTrue(controller.last_wrist_allowed)
 
 
 if __name__ == "__main__":

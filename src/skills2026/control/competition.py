@@ -115,7 +115,6 @@ class CompetitionRunner:
 
                 self.scheduler.request_precision(
                     self.controller.spec.camera_role == "wrist"
-                    and wrist_frame is not None
                     and self.controller.fsm.state.value
                     in {
                         "switch_to_wrist_precision",
@@ -179,5 +178,8 @@ class CompetitionRunner:
             logger.warning("Competition loop timed out.")
             self.io.stop_base(last_observation)
             return 1
+        except Exception:
+            self.io.stop_base(last_observation)
+            raise
         finally:
             self.io.disconnect()

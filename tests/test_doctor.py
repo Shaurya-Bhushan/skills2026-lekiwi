@@ -71,6 +71,29 @@ class DoctorTests(unittest.TestCase):
         self.assertFalse(framing.ok)
         self.assertIn("too little structure", framing.detail)
 
+    @patch("skills2026.commands.doctor.checklist_ready", return_value=(True, []))
+    @patch("skills2026.commands.doctor.tcp_port_open", return_value=(True, "reachable"))
+    @patch("skills2026.commands.doctor.capture_single_camera_frame")
+    @patch("skills2026.commands.doctor.camera_exists", return_value=True)
+    @patch("skills2026.commands.doctor.discover_serial_ports", return_value=[])
+    def test_doctor_skips_disabled_cameras_but_requires_one_enabled(
+        self,
+        _discover_serial_ports,
+        _camera_exists,
+        mock_capture_single_camera_frame,
+        _tcp_port_open,
+        _checklist_ready,
+    ):
+        profile = Skills2026Profile.defaults("doctor")
+        profile.cameras["front"].enabled = False
+        profile.cameras["wrist"].enabled = False
+
+        results = collect_checks(profile)
+        enabled = next(result for result in results if result.name == "camera_enabled")
+
+        self.assertFalse(enabled.ok)
+        self.assertEqual(mock_capture_single_camera_frame.call_count, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

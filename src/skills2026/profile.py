@@ -264,6 +264,7 @@ class Skills2026Profile:
                 "final_zone_pose": {},
                 "transformer_bolt_hover": {},
                 "transformer_bolt_pose": {},
+                "transformer_bolt_lock_pose": {},
                 "transformer_insert_hover": {},
                 "transformer_insert_pose": {},
             },

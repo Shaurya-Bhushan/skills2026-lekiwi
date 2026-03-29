@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
             "pick_board",
             "insert_board",
             "unlock_transformer_bolts",
+            "lock_transformer_bolts",
             "pick_transformer",
             "remove_transformer",
             "replace_transformer",
@@ -134,6 +135,7 @@ def build_parser() -> argparse.ArgumentParser:
             "pick_board",
             "insert_board",
             "unlock_transformer_bolts",
+            "lock_transformer_bolts",
             "pick_transformer",
             "remove_transformer",
             "replace_transformer",
@@ -154,12 +156,12 @@ def build_parser() -> argparse.ArgumentParser:
     competition_parser.add_argument(
         "--policy-path",
         default="",
-        help="Required for `--backend act`: local or Hub ACT checkpoint path.",
+        help="Required for `--backend act`: local or Hub ACT checkpoint path. A matching local dataset folder is still required for preprocessing stats.",
     )
     competition_parser.add_argument(
         "--dataset-name",
         default="",
-        help="Optional local dataset folder used for ACT feature names and normalization stats.",
+        help="Local dataset folder used for ACT feature names and normalization stats. Defaults to `<profile>_<primitive>`.",
     )
     competition_parser.add_argument(
         "--policy-device",

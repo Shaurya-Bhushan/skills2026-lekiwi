@@ -36,7 +36,11 @@ def run(args) -> int:
     camera_failures = [
         result
         for result in camera_checks
-        if not result.ok and result.name.endswith(("_camera_present", "_camera_frame", "_camera_framing", "_camera_calibration"))
+        if not result.ok
+        and (
+            result.name == "camera_enabled"
+            or result.name.endswith(("_camera_present", "_camera_frame", "_camera_framing", "_camera_calibration"))
+        )
     ]
     if camera_failures:
         raise ValueError(

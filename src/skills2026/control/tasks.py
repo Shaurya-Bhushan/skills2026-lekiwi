@@ -71,13 +71,14 @@ TASKS: dict[str, MatchTaskSpec] = {
         name="repair_transformer",
         label="Repair Transformer",
         category="ecu",
-        description="Unlock the transformer bolts, remove the broken transformer, discard it, then place the replacement transformer.",
+        description="Unlock the transformer bolts, remove the broken transformer, discard it, place the replacement transformer, then lock the bolts again.",
         primitive_sequence=(
             PrimitiveStep("unlock_transformer_bolts", target_slot="left"),
             PrimitiveStep("remove_transformer", target_slot="left"),
             PrimitiveStep("drop_debris", target_slot="debris_zone"),
             PrimitiveStep("pick_transformer", target_slot="transformer_supply"),
             PrimitiveStep("replace_transformer", target_slot="left"),
+            PrimitiveStep("lock_transformer_bolts", target_slot="left"),
         ),
         manual_note="Only start transformer work after you have a stable ECU view and enough arm clearance.",
     ),
@@ -105,7 +106,7 @@ TASKS: dict[str, MatchTaskSpec] = {
         category="safe_room",
         description="Place the ECU fan in the correct mounting area.",
         primitive_sequence=(
-            PrimitiveStep("pick_ecu_fan", target_slot="supply_source"),
+            PrimitiveStep("pick_ecu_fan", target_slot="fan_source"),
             PrimitiveStep("place_ecu_fan", target_slot="fan_mount"),
         ),
     ),
@@ -140,9 +141,9 @@ TASKS: dict[str, MatchTaskSpec] = {
         name="final_position",
         label="Final Position",
         category="finish",
-        description="Finish with the autonomous robot in the Autonomous Zone.",
-        primitive_sequence=(PrimitiveStep("park_final_robot", target_slot="final_robot_zone"),),
-        manual_note="If another robot handles final parking, use this step as a checklist confirmation.",
+        description="Finish by confirming the autonomous robot is parked in the Autonomous Zone.",
+        primitive_sequence=(),
+        manual_note="Park the robot in the Autonomous Zone, then confirm the finish step.",
     ),
 }
 
@@ -168,8 +169,8 @@ MISSION_PRESETS: dict[str, tuple[str, ...]] = {
         "install_ecu_fan",
         "protect_workers",
         "deliver_steve",
-        "flip_breaker",
         "final_position",
+        "flip_breaker",
     ),
     "full_match": (
         "move_fallen_beams",
@@ -182,7 +183,7 @@ MISSION_PRESETS: dict[str, tuple[str, ...]] = {
         "install_ecu_fan",
         "protect_workers",
         "deliver_steve",
-        "flip_breaker",
         "final_position",
+        "flip_breaker",
     ),
 }

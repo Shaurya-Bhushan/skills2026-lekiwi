@@ -240,6 +240,14 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         camera_role="wrist",
         success_mode="pose",
     ),
+    "lock_transformer_bolts": PrimitiveSpec(
+        name="lock_transformer_bolts",
+        coarse_pose="transformer_bolt_hover",
+        action_pose="transformer_bolt_lock_pose",
+        retract_pose="safe_retract",
+        camera_role="wrist",
+        success_mode="pose",
+    ),
     "replace_transformer": PrimitiveSpec(
         name="replace_transformer",
         coarse_pose="transformer_insert_hover",
@@ -296,6 +304,7 @@ class PrimitiveController:
     pre_action_bbox_area: float | None = None
     pre_action_coarse_bbox_area: float | None = None
     pre_action_coarse_center: tuple[float, float] | None = None
+    pre_action_reference_locked: bool = False
     pickup_verify_coarse_displacement_px: float = 40.0
 
     def _pose(self, pose_name: str) -> dict[str, float]:
@@ -330,6 +339,13 @@ class PrimitiveController:
             if coarse.center_px is not None:
                 self.pre_action_coarse_center = coarse.center_px
 
+    def _lock_pre_action_target(self, detections: DetectionBundle) -> None:
+        self._remember_pre_action_target(detections)
+        self.pre_action_reference_locked = True
+
+    def _fresh_target(self, target) -> bool:
+        return bool(target and target.found and not target.metadata.get("stale"))
+
     def _reset_pickup_verification(self) -> None:
         self.pickup_verify_hits = 0
         self.pickup_verify_fail_cycles = 0
@@ -338,11 +354,12 @@ class PrimitiveController:
         self.pre_action_bbox_area = None
         self.pre_action_coarse_bbox_area = None
         self.pre_action_coarse_center = None
+        self.pre_action_reference_locked = False
 
     def _pickup_verification_status(self, detections: DetectionBundle) -> tuple[str, str]:
         fine = detections.fine_target
         coarse = detections.coarse_target
-        coarse_fresh = bool(coarse and coarse.found and not coarse.metadata.get("stale"))
+        coarse_fresh = self._fresh_target(coarse)
         tracked_coarse = bool(coarse_fresh and "tracked" in str(coarse.metadata.get("selected_via", "")))
         same_source = False
         coarse_displacement = 0.0
@@ -491,7 +508,8 @@ class PrimitiveController:
         if state == PrimitiveState.DETECT_GLOBAL:
             if self.fsm.cycles_in_state == 0:
                 self._reset_pickup_verification()
-            if detections.coarse_target and detections.coarse_target.found:
+            coarse = detections.coarse_target
+            if self._fresh_target(coarse):
                 self._reset_pickup_verification()
                 self.coarse_alignment_hits = 0
                 self.lost_coarse_cycles = 0
@@ -512,7 +530,7 @@ class PrimitiveController:
                 )
 
             coarse = detections.coarse_target
-            if coarse and coarse.found and coarse.error_px is not None:
+            if self._fresh_target(coarse) and coarse.error_px is not None:
                 self.lost_coarse_cycles = 0
                 tol = self.profile.servo["front"].tolerance_px
                 if abs(coarse.error_px[0]) <= tol and abs(coarse.error_px[1]) <= tol:
@@ -539,10 +557,25 @@ class PrimitiveController:
             return ControlDecision(action=current_pose, message="lost front target")
 
         if state == PrimitiveState.SWITCH_TO_WRIST_PRECISION:
-            if self.spec.camera_role != "wrist" or not wrist_allowed:
+            if self.spec.camera_role != "wrist":
                 self.fsm.transition(PrimitiveState.GRASP_OR_INSERT)
                 return ControlDecision(action=current_pose, message="continuing without wrist precision")
-            if detections.fine_target and detections.fine_target.found:
+            if not wrist_allowed:
+                self.lost_wrist_cycles += 1
+                if self.lost_wrist_cycles <= self.wrist_target_miss_grace_cycles:
+                    self.fsm.transition(PrimitiveState.SWITCH_TO_WRIST_PRECISION)
+                    return ControlDecision(
+                        action=current_pose,
+                        message="waiting for wrist precision camera",
+                        use_wrist=True,
+                    )
+                self.fsm.transition(PrimitiveState.RETRY_OR_ABORT)
+                return ControlDecision(
+                    action=current_pose,
+                    message="lost wrist precision camera",
+                    use_wrist=True,
+                )
+            if self._fresh_target(detections.fine_target):
                 self._remember_pre_action_target(detections)
                 self.lost_wrist_cycles = 0
                 self.fsm.transition(PrimitiveState.ALIGN_FINE)
@@ -559,8 +592,20 @@ class PrimitiveController:
                 self.fsm.transition(PrimitiveState.ALIGN_FINE)
                 return ControlDecision(action=current_pose, message="waiting for wrist camera to settle", use_wrist=True)
 
+            if not wrist_allowed:
+                self.lost_wrist_cycles += 1
+                if self.lost_wrist_cycles <= self.wrist_target_miss_grace_cycles:
+                    self.fsm.transition(PrimitiveState.ALIGN_FINE)
+                    return ControlDecision(
+                        action=current_pose,
+                        message="waiting for wrist precision camera",
+                        use_wrist=True,
+                    )
+                self.fsm.transition(PrimitiveState.RETRY_OR_ABORT)
+                return ControlDecision(action=current_pose, message="lost wrist precision camera", use_wrist=True)
+
             fine = detections.fine_target
-            if fine and fine.found and fine.error_px is not None:
+            if self._fresh_target(fine) and fine.error_px is not None:
                 self._remember_pre_action_target(detections)
                 self.lost_wrist_cycles = 0
                 tol = self.profile.servo["wrist"].tolerance_px
@@ -570,6 +615,7 @@ class PrimitiveController:
                     self.alignment_hits = 0
 
                 if self.alignment_hits >= 3:
+                    self._lock_pre_action_target(detections)
                     self.fsm.transition(PrimitiveState.GRASP_OR_INSERT)
                     return ControlDecision(action=current_pose, message="fine alignment locked", use_wrist=True)
 
@@ -595,8 +641,8 @@ class PrimitiveController:
         if state == PrimitiveState.GRASP_OR_INSERT:
             motion_profile = self.profile.servo["wrist"] if self.spec.camera_role == "wrist" else self.profile.servo["front"]
             use_wrist = self.spec.camera_role == "wrist"
-            if use_wrist:
-                self._remember_pre_action_target(detections)
+            if use_wrist and not self.pre_action_reference_locked:
+                self._lock_pre_action_target(detections)
             max_step = motion_profile.max_step
             if use_wrist:
                 max_step = max(motion_profile.max_step * self.wrist_action_step_scale, 0.4)
@@ -723,8 +769,11 @@ class PrimitiveController:
                     return ControlDecision(action=current_pose, message="retracted and verifying pickup", use_wrist=True)
                 return ControlDecision(action=current_pose, message="retracted and restarting")
             self.fsm.transition(PrimitiveState.RETRACT)
+            retract_step = self.profile.servo["front"].max_step
+            if self.spec.camera_role == "wrist":
+                retract_step = max(min(self.profile.servo["wrist"].max_step, retract_step) * 0.6, 0.4)
             return ControlDecision(
-                action=self._move_towards_pose(current_pose, retract_pose, self.profile.servo["front"].max_step),
+                action=self._move_towards_pose(current_pose, retract_pose, retract_step),
                 message="retracting to safe pose",
             )
 

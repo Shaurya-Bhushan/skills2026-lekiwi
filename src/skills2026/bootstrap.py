@@ -40,6 +40,28 @@ def _candidate_lerobot_src_paths() -> list[Path]:
 
 
 def ensure_lerobot_on_path() -> Path:
+    for candidate in _candidate_lerobot_src_paths():
+        if not (candidate / "lerobot").exists():
+            continue
+        candidate_str = str(candidate)
+        if candidate_str not in sys.path:
+            sys.path.insert(0, candidate_str)
+        existing = sys.modules.get("lerobot")
+        if existing is not None:
+            existing_file = getattr(existing, "__file__", "") or ""
+            existing_paths = list(getattr(existing, "__path__", []) or [])
+            if (existing_file or existing_paths) and candidate_str not in existing_file and not any(
+                candidate_str in str(path) for path in existing_paths
+            ):
+                for module_name in list(sys.modules):
+                    if module_name == "lerobot" or module_name.startswith("lerobot."):
+                        del sys.modules[module_name]
+        try:
+            import lerobot  # noqa: F401
+            return candidate
+        except ModuleNotFoundError:
+            continue
+
     try:
         import lerobot  # noqa: F401
 
@@ -59,18 +81,6 @@ def ensure_lerobot_on_path() -> Path:
         return Path.cwd()
     except ModuleNotFoundError:
         pass
-
-    for candidate in _candidate_lerobot_src_paths():
-        if not (candidate / "lerobot").exists():
-            continue
-        candidate_str = str(candidate)
-        if candidate_str not in sys.path:
-            sys.path.insert(0, candidate_str)
-        try:
-            import lerobot  # noqa: F401
-            return candidate
-        except ModuleNotFoundError:
-            continue
 
     searched = ", ".join(str(path) for path in _candidate_lerobot_src_paths()[:4])
     raise ModuleNotFoundError(

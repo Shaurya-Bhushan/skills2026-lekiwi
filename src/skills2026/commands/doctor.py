@@ -89,7 +89,25 @@ def collect_checks(profile) -> list[CheckResult]:
 
 def collect_camera_checks(profile) -> list[CheckResult]:
     results: list[CheckResult] = []
+    enabled_roles = [role for role, camera in profile.cameras.items() if camera.enabled]
+    results.append(
+        CheckResult(
+            "camera_enabled",
+            bool(enabled_roles),
+            ", ".join(enabled_roles) if enabled_roles else "no cameras enabled",
+        )
+    )
     for role, camera in profile.cameras.items():
+        if not camera.enabled:
+            results.extend(
+                [
+                    CheckResult(f"{role}_camera_present", True, "disabled in profile"),
+                    CheckResult(f"{role}_camera_frame", True, "disabled in profile"),
+                    CheckResult(f"{role}_camera_framing", True, "disabled in profile"),
+                    CheckResult(f"{role}_camera_calibration", True, "disabled in profile"),
+                ]
+            )
+            continue
         exists = camera_exists(camera.source_id)
         results.append(CheckResult(f"{role}_camera_present", exists, str(camera.source_id)))
         if exists:

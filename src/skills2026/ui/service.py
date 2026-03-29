@@ -189,9 +189,10 @@ def build_next_steps(profile: Skills2026Profile) -> str:
         f"2. Run `skills2026 --profile {profile.profile_name} doctor` to confirm hardware and checklist readiness.",
         f"3. When the robot is powered and the cameras are live, run `skills2026 --profile {profile.profile_name} setup` to capture camera calibration and service poses.",
         f"4. Start with `skills2026 --profile {profile.profile_name} teleop` before trying `record` or `competition`.",
-        f"5. Start with `skills2026 --profile {profile.profile_name} competition mission --mission-name ecu_steve_priority` once your ECU service poses are captured.",
-        "6. Keep the default OpenCV/FSM stack until fuse, board, transformer, and Steve tasks are repeatable.",
-        "7. If you still need learning later, record clean demonstrations and train ACT for insertion or contact refinement.",
+        f"5. Run `skills2026 --profile {profile.profile_name} pickup_validation --suite core --trials 3` once pickup is stable.",
+        f"6. Start with `skills2026 --profile {profile.profile_name} competition mission --mission-name ecu_steve_priority` once your ECU service poses are captured.",
+        "7. Keep the default OpenCV/FSM stack until fuse, board, transformer, and Steve tasks are repeatable.",
+        "8. If you still need learning later, record clean demonstrations and train ACT for insertion or contact refinement.",
     ]
     return "### Beginner Next Steps\n" + "\n".join(f"- {step}" for step in steps)
 

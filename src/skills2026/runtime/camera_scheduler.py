@@ -18,6 +18,7 @@ class CameraScheduler:
         self.wrist_enabled = True
         self.front_fps_scale = 1.0
         self.overload_strikes = 0
+        self.healthy_strikes = 0
         self.precision_requested = False
 
     def request_precision(self, enabled: bool) -> None:
@@ -32,14 +33,25 @@ class CameraScheduler:
 
         if overloaded:
             self.overload_strikes += 1
+            self.healthy_strikes = 0
         else:
             self.overload_strikes = max(self.overload_strikes - 1, 0)
+            if self.overload_strikes == 0:
+                self.healthy_strikes += 1
+            else:
+                self.healthy_strikes = 0
 
         if (
             self.wrist_enabled
             and self.overload_strikes >= self.budget.overload_strikes_before_disabling_wrist
         ):
             self.wrist_enabled = False
+            self.healthy_strikes = 0
+
+        if not self.wrist_enabled and self.overload_strikes == 0 and self.healthy_strikes >= 5:
+            self.wrist_enabled = True
+            self.front_fps_scale = 1.0
+            self.healthy_strikes = 0
 
         if self.overload_strikes >= self.budget.overload_strikes_before_throttling_front:
             self.front_fps_scale = 0.75
@@ -49,4 +61,3 @@ class CameraScheduler:
             front_fps_scale=self.front_fps_scale,
             overload_strikes=self.overload_strikes,
         )
-

@@ -436,12 +436,16 @@ The recommended beginner path in this repo is:
 - OpenCV + FSM first
 - ACT later
 
+Important: the UI lets you choose a profile name. In the commands below, add
+`--profile <your-profile>` after `skills2026` if you did not keep the default
+`default` profile name.
+
 ## Step 6: Capture Live Setup
 
 When the robot is powered and the cameras are working:
 
 ```bash
-skills2026 setup
+skills2026 --profile <your-profile> setup
 ```
 
 This command helps you save:
@@ -465,11 +469,15 @@ For this repo, the important service poses are the ones that support:
 - safe retract / stow positions
 
 If these poses are missing or wrong, the system will not feel plug-and-play.
+If you enable `start_local_host` in the profile, the helper commands will start
+the LeKiwi host for you. If you leave it off, start the host manually before
+running `setup`, `teleop`, `record`, `replay`, `pickup_validation`, or
+`competition`.
 
 If the robot is not powered yet, you can still save the basic profile:
 
 ```bash
-skills2026 setup --skip-live
+skills2026 --profile <your-profile> setup --skip-live
 ```
 
 ## Step 7: Check Readiness
@@ -477,7 +485,7 @@ skills2026 setup --skip-live
 Run:
 
 ```bash
-skills2026 doctor
+skills2026 --profile <your-profile> doctor
 ```
 
 This checks:
@@ -506,7 +514,7 @@ Training does not solve:
 Before trying autonomous behavior, make sure teleop works:
 
 ```bash
-skills2026 teleop
+skills2026 --profile <your-profile> teleop
 ```
 
 What success looks like:
@@ -523,7 +531,7 @@ If teleop is not solid, do not start data collection yet.
 Before trusting the robot on real pickup tasks, run the built-in pickup stress test:
 
 ```bash
-skills2026 pickup_validation --suite core --trials 3
+skills2026 --profile <your-profile> pickup_validation --suite core --trials 3
 ```
 
 What this does:
@@ -540,7 +548,7 @@ What this does:
 Use the ECU-focused suite once the generic pickup path is stable:
 
 ```bash
-skills2026 pickup_validation --suite ecu --trials 3
+skills2026 --profile <your-profile> pickup_validation --suite ecu --trials 3
 ```
 
 That suite checks:
@@ -590,7 +598,7 @@ Use the stack like this:
 Run the scripted competition stack:
 
 ```bash
-skills2026 competition ecu --primitive insert_fuse --target-color green
+skills2026 --profile <your-profile> competition ecu --primitive insert_fuse --target-color green
 ```
 
 Repeat with the other colors once one color works.
@@ -615,7 +623,7 @@ Boards are the next best Ontario Skills target because the visual cues are large
 Use:
 
 ```bash
-skills2026 competition ecu --primitive insert_board --target-slot center
+skills2026 --profile <your-profile> competition ecu --primitive insert_board --target-slot center
 ```
 
 You will probably need to adjust your service poses and calibration a few times before board insertion feels clean.
@@ -639,7 +647,7 @@ Steve is a good follow-up arm task after boards because:
 Run:
 
 ```bash
-skills2026 competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
+skills2026 --profile <your-profile> competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
 ```
 
 Steve is also meant to work without training in the baseline system.
@@ -668,7 +676,7 @@ This repo includes transformer primitives, but the intended beginner path is:
 Start with the focused ECU + Steve mission:
 
 ```bash
-skills2026 competition mission --mission-name ecu_steve_priority
+skills2026 --profile <your-profile> competition mission --mission-name ecu_steve_priority
 ```
 
 That preset runs:
@@ -680,14 +688,16 @@ That preset runs:
 - breaker flip
 
 The goal is that this mission is still useful **before** any learning is added.
-Transformer steps are the most likely part to need extra tuning, but the repo is still designed so you try them scripted first.
+Transformer steps are the most likely part to need extra tuning, but the repo is still designed so you try them scripted first. The transformer flow now includes an explicit bolt re-lock step after the replacement.
 
 Other presets:
 
 ```bash
-skills2026 competition mission --mission-name ecu_only
-skills2026 competition mission --mission-name full_match
+skills2026 --profile <your-profile> competition mission --mission-name ecu_only
+skills2026 --profile <your-profile> competition mission --mission-name full_match
 ```
+
+The `full_match` and `rescue_support` presets also include a final-position confirmation step before the breaker flip, because the breaker ends the run.
 
 ## Step 13: Record Data Only After Baseline Works
 
@@ -702,23 +712,24 @@ That is the intended design:
 Once teleop and scripted control are stable, collect demonstrations:
 
 ```bash
-skills2026 record insert_fuse
+skills2026 --profile <your-profile> record insert_fuse
 ```
 
 You can also record the other important Ontario primitives:
 
 ```bash
-skills2026 record remove_board
-skills2026 record insert_board
-skills2026 record deliver_steve_to_lobby
-skills2026 record unlock_transformer_bolts
-skills2026 record replace_transformer
+skills2026 --profile <your-profile> record remove_board
+skills2026 --profile <your-profile> record insert_board
+skills2026 --profile <your-profile> record deliver_steve_to_lobby
+skills2026 --profile <your-profile> record unlock_transformer_bolts
+skills2026 --profile <your-profile> record lock_transformer_bolts
+skills2026 --profile <your-profile> record replace_transformer
 ```
 
 Then replay them:
 
 ```bash
-skills2026 replay default_insert_fuse 0
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse 0
 ```
 
 The LeRobot docs recommend starting with at least **50 episodes** for a simple task and keeping the cameras fixed and the demonstrations consistent.
@@ -783,21 +794,21 @@ ACT is only for the case where you already have:
 Run it like this:
 
 ```bash
-skills2026 competition ecu \
+skills2026 --profile <your-profile> competition ecu \
   --backend act \
   --primitive insert_fuse \
   --policy-path your_user/your_act_checkpoint \
-  --dataset-name default_insert_fuse
+  --dataset-name <your-profile>_insert_fuse
 ```
 
 Or with a local checkpoint path:
 
 ```bash
-skills2026 competition ecu \
+skills2026 --profile <your-profile> competition ecu \
   --backend act \
   --primitive replace_transformer \
   --policy-path /absolute/path/to/pretrained_model \
-  --dataset-name default_replace_transformer
+  --dataset-name <your-profile>_replace_transformer
 ```
 
 The ACT backend uses:
@@ -852,8 +863,8 @@ Once the one-time setup is finished, the normal student workflow should look lik
 3. connect the wrist camera
 4. connect the leader arm
 5. make sure the robot is in the same physical setup you calibrated for
-6. run `skills2026 doctor`
-7. run `skills2026 teleop` for a quick motion sanity check
+6. run `skills2026 --profile <your-profile> doctor`
+7. run `skills2026 --profile <your-profile> teleop` for a quick motion sanity check
 8. park the robot at the ECU service pose
 9. run the focused ECU mission or a single ECU primitive
 
@@ -865,21 +876,23 @@ That is the real plug-and-play goal of this repo:
 ## Common Commands
 
 ```bash
-skills2026 ui
-skills2026 setup --skip-live
-skills2026 setup
-skills2026 doctor
-skills2026 teleop
-skills2026 pickup_validation --suite core --trials 3
-skills2026 pickup_validation --suite ecu --trials 3
-skills2026 record insert_fuse
-skills2026 replay default_insert_fuse 0
-skills2026 competition ecu --primitive insert_fuse --target-color green
-skills2026 competition ecu --primitive insert_board --target-slot center
-skills2026 competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
-skills2026 competition ecu --primitive replace_transformer --target-slot left
-skills2026 competition mission --mission-name ecu_steve_priority
-skills2026 competition ecu --backend act --primitive insert_fuse --policy-path your_user/your_act_checkpoint --dataset-name default_insert_fuse
+skills2026 --profile <your-profile> ui
+skills2026 --profile <your-profile> setup --skip-live
+skills2026 --profile <your-profile> setup
+skills2026 --profile <your-profile> doctor
+skills2026 --profile <your-profile> teleop
+skills2026 --profile <your-profile> pickup_validation --suite core --trials 3
+skills2026 --profile <your-profile> pickup_validation --suite ecu --trials 3
+skills2026 --profile <your-profile> record insert_fuse
+skills2026 --profile <your-profile> record unlock_transformer_bolts
+skills2026 --profile <your-profile> record lock_transformer_bolts
+skills2026 --profile <your-profile> replay <your-profile>_insert_fuse 0
+skills2026 --profile <your-profile> competition ecu --primitive insert_fuse --target-color green
+skills2026 --profile <your-profile> competition ecu --primitive insert_board --target-slot center
+skills2026 --profile <your-profile> competition ecu --primitive deliver_steve_to_lobby --target-slot lobby
+skills2026 --profile <your-profile> competition ecu --primitive replace_transformer --target-slot left
+skills2026 --profile <your-profile> competition mission --mission-name ecu_steve_priority
+skills2026 --profile <your-profile> competition ecu --backend act --primitive insert_fuse --policy-path your_user/your_act_checkpoint --dataset-name <your-profile>_insert_fuse
 ```
 
 ## If Something Is Going Wrong

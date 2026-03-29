@@ -100,6 +100,38 @@ class FSMTests(unittest.TestCase):
         self.assertEqual(decision.message, "continuing without wrist precision")
         self.assertFalse(decision.use_wrist)
 
+    def test_wrist_precision_waits_for_fresh_target_instead_of_falling_back(self):
+        profile = Skills2026Profile.defaults("fsm")
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.SWITCH_TO_WRIST_PRECISION
+        current = _pose(0.0)
+
+        decision = controller.step(current, DetectionBundle(), wrist_allowed=False)
+
+        self.assertEqual(controller.fsm.state, PrimitiveState.SWITCH_TO_WRIST_PRECISION)
+        self.assertEqual(decision.message, "waiting for wrist precision camera")
+        self.assertTrue(decision.use_wrist)
+
+    def test_stale_wrist_target_does_not_advance_fine_alignment(self):
+        profile = Skills2026Profile.defaults("fsm")
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.SWITCH_TO_WRIST_PRECISION
+        current = _pose(0.0)
+        stale_fine = VisionTarget(
+            found=True,
+            camera_role="wrist",
+            confidence=0.8,
+            error_px=(0.0, 0.0),
+            bbox_xywh=(20, 20, 20, 20),
+            metadata={"stale": True},
+        )
+
+        decision = controller.step(current, DetectionBundle(fine_target=stale_fine), wrist_allowed=True)
+
+        self.assertEqual(controller.fsm.state, PrimitiveState.SWITCH_TO_WRIST_PRECISION)
+        self.assertEqual(decision.message, "waiting for wrist target")
+        self.assertTrue(decision.use_wrist)
+
     def test_coarse_alignment_uses_front_error_before_switching_to_wrist(self):
         profile = Skills2026Profile.defaults("fsm")
         profile.service_poses["tray_hover"] = _pose(0.0)
@@ -130,6 +162,41 @@ class FSMTests(unittest.TestCase):
         self.assertEqual(second.message, "holding action pose to secure grasp")
         self.assertEqual(third.message, "grasp pose reached, retracting to verify pickup")
         self.assertEqual(controller.fsm.state, PrimitiveState.RETRACT)
+
+    def test_pre_action_reference_locks_before_grasp(self):
+        profile = Skills2026Profile.defaults("fsm")
+        profile.service_poses["debris_pick_pose"] = _pose(5.0)
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.ALIGN_FINE
+        controller.alignment_hits = 3
+        current = _pose(5.0)
+        first_fine = VisionTarget(
+            found=True,
+            camera_role="wrist",
+            confidence=0.9,
+            error_px=(0.0, 0.0),
+            bbox_xywh=(10, 10, 20, 20),
+            metadata={},
+        )
+        later_fine = VisionTarget(
+            found=True,
+            camera_role="wrist",
+            confidence=0.9,
+            error_px=(0.0, 0.0),
+            bbox_xywh=(10, 10, 50, 50),
+            metadata={},
+        )
+
+        first = controller.step(current, DetectionBundle(fine_target=first_fine), wrist_allowed=True)
+        locked_area = controller.pre_action_bbox_area
+        locked_reference = controller.pre_action_reference_locked
+        second = controller.step(current, DetectionBundle(fine_target=later_fine), wrist_allowed=True)
+
+        self.assertTrue(locked_reference)
+        self.assertEqual(locked_area, 400.0)
+        self.assertEqual(controller.pre_action_bbox_area, 400.0)
+        self.assertEqual(first.message, "fine alignment locked")
+        self.assertEqual(second.message, "holding action pose to secure grasp")
 
     def test_pickup_action_pose_ignores_stale_saved_gripper_value(self):
         profile = Skills2026Profile.defaults("fsm")
