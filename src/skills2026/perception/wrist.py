@@ -14,7 +14,7 @@ class WristPerception:
     selector: TargetSelector = field(default_factory=TargetSelector)
 
     def _foreground_mask(self, frame: np.ndarray) -> np.ndarray:
-        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
         blur = cv2.GaussianBlur(clahe, (5, 5), 0)
         _, otsu_mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -55,7 +55,7 @@ class WristPerception:
         primitive_name: str,
         target_color: str | None = None,
     ) -> VisionTarget:
-        hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         frame_h, frame_w = frame.shape[:2]
         desired_center = (frame_w / 2.0, frame_h / 2.0)
         desired_slack_px = max(frame_w, frame_h) * 0.10
@@ -154,7 +154,7 @@ class WristPerception:
                 metadata={**selection, "verified": verified},
             )
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         edges = cv2.Canny(gray, 60, 120)
         points = cv2.findNonZero(edges)
         if points is None:

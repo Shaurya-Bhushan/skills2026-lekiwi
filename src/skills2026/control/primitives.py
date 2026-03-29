@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from skills2026.constants import ARM_JOINT_KEYS
 from skills2026.control.fsm import FSMStatus, PrimitiveState
@@ -29,7 +28,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=18.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "pick_fuse": PrimitiveSpec(
         name="pick_fuse",
@@ -38,7 +37,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=20.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "insert_fuse": PrimitiveSpec(
         name="insert_fuse",
@@ -55,7 +54,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=24.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "pick_board": PrimitiveSpec(
         name="pick_board",
@@ -64,7 +63,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=25.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "insert_board": PrimitiveSpec(
         name="insert_board",
@@ -81,7 +80,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=26.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "remove_transformer": PrimitiveSpec(
         name="remove_transformer",
@@ -90,7 +89,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=26.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "pick_debris": PrimitiveSpec(
         name="pick_debris",
@@ -99,7 +98,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=25.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "drop_debris": PrimitiveSpec(
         name="drop_debris",
@@ -125,7 +124,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=28.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "deliver_supply_item": PrimitiveSpec(
         name="deliver_supply_item",
@@ -152,7 +151,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=18.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "place_worker_upright": PrimitiveSpec(
         name="place_worker_upright",
@@ -170,7 +169,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=22.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "deliver_steve_to_lobby": PrimitiveSpec(
         name="deliver_steve_to_lobby",
@@ -188,7 +187,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=24.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "place_ecu_fan": PrimitiveSpec(
         name="place_ecu_fan",
@@ -206,7 +205,7 @@ PRIMITIVES: dict[str, PrimitiveSpec] = {
         retract_pose="safe_retract",
         camera_role="wrist",
         gripper_value=24.0,
-        success_mode="pose",
+        success_mode="pickup",
     ),
     "park_autonomous_bot": PrimitiveSpec(
         name="park_autonomous_bot",
@@ -283,9 +282,133 @@ class PrimitiveController:
     action_hold_cycles_required: int = 2
     action_hold_cycles_remaining: int = 0
     action_hold_started: bool = False
+    pickup_verify_hits: int = 0
+    pickup_verify_fail_cycles: int = 0
+    pickup_verify_required_hits: int = 2
+    pickup_verify_fail_grace_cycles: int = 2
+    pickup_verify_area_floor_ratio: float = 0.55
+    pickup_verify_center_multiplier: float = 1.25
+    pickup_source_present_cycles: int = 0
+    pickup_source_clear_cycles: int = 0
+    pickup_source_present_required: int = 2
+    pickup_source_clear_required: int = 2
+    pickup_source_area_ratio_max: float = 2.5
+    pre_action_bbox_area: float | None = None
+    pre_action_coarse_bbox_area: float | None = None
+    pre_action_coarse_center: tuple[float, float] | None = None
+    pickup_verify_coarse_displacement_px: float = 40.0
 
     def _pose(self, pose_name: str) -> dict[str, float]:
         return dict(self.profile.service_poses.get(pose_name, {}))
+
+    def _bbox_area(self, bbox: tuple[int, int, int, int] | None) -> float | None:
+        if bbox is None:
+            return None
+        return float(bbox[2] * bbox[3])
+
+    def _distance(
+        self,
+        a: tuple[float, float] | None,
+        b: tuple[float, float] | None,
+    ) -> float:
+        if a is None or b is None:
+            return 0.0
+        return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
+
+    def _remember_pre_action_target(self, detections: DetectionBundle) -> None:
+        fine = detections.fine_target
+        if fine and fine.found and not fine.metadata.get("stale"):
+            area = self._bbox_area(fine.bbox_xywh)
+            if area is not None:
+                self.pre_action_bbox_area = area
+
+        coarse = detections.coarse_target
+        if coarse and coarse.found and not coarse.metadata.get("stale"):
+            area = self._bbox_area(coarse.bbox_xywh)
+            if area is not None:
+                self.pre_action_coarse_bbox_area = area
+            if coarse.center_px is not None:
+                self.pre_action_coarse_center = coarse.center_px
+
+    def _reset_pickup_verification(self) -> None:
+        self.pickup_verify_hits = 0
+        self.pickup_verify_fail_cycles = 0
+        self.pickup_source_present_cycles = 0
+        self.pickup_source_clear_cycles = 0
+        self.pre_action_bbox_area = None
+        self.pre_action_coarse_bbox_area = None
+        self.pre_action_coarse_center = None
+
+    def _pickup_verification_status(self, detections: DetectionBundle) -> tuple[str, str]:
+        fine = detections.fine_target
+        coarse = detections.coarse_target
+        coarse_fresh = bool(coarse and coarse.found and not coarse.metadata.get("stale"))
+        same_source = False
+        if coarse_fresh and coarse.center_px is not None and self.pre_action_coarse_center is not None:
+            coarse_area = self._bbox_area(coarse.bbox_xywh)
+            area_ratio_ok = True
+            if self.pre_action_coarse_bbox_area is not None and coarse_area is not None and self.pre_action_coarse_bbox_area > 0.0:
+                area_ratio = coarse_area / self.pre_action_coarse_bbox_area
+                area_ratio_ok = (
+                    self.pickup_verify_area_floor_ratio
+                    <= area_ratio
+                    <= self.pickup_source_area_ratio_max
+                )
+            same_source = (
+                self._distance(self.pre_action_coarse_center, coarse.center_px)
+                < self.pickup_verify_coarse_displacement_px
+                and area_ratio_ok
+            )
+
+        if fine is None or not fine.found or fine.metadata.get("stale"):
+            if coarse_fresh:
+                if same_source:
+                    self.pickup_verify_hits = 0
+                    self.pickup_source_clear_cycles = 0
+                    self.pickup_source_present_cycles += 1
+                    if self.pickup_source_present_cycles >= self.pickup_source_present_required:
+                        return "fail", "pickup source still occupied after retract"
+                    return "wait", "pickup source still looks occupied"
+
+                self.pickup_verify_fail_cycles = 0
+                self.pickup_source_present_cycles = 0
+                self.pickup_source_clear_cycles += 1
+                if self.pickup_source_clear_cycles >= self.pickup_source_clear_required:
+                    return "pass", "pickup verification passed from cleared front source"
+                return "wait", "waiting for pickup source to clear"
+            self.pickup_verify_hits = 0
+            return "wait", "pickup verification waiting for fresh wrist target"
+
+        if fine.error_px is None or fine.bbox_xywh is None:
+            self.pickup_verify_hits = 0
+            self.pickup_verify_fail_cycles += 1
+            if self.pickup_verify_fail_cycles <= self.pickup_verify_fail_grace_cycles:
+                return "wait", "pickup verification reacquiring wrist geometry"
+            return "fail", "pickup verification lost object geometry"
+
+        tol = self.profile.servo["wrist"].tolerance_px * self.pickup_verify_center_multiplier
+        centered = abs(fine.error_px[0]) <= tol and abs(fine.error_px[1]) <= tol
+        area = self._bbox_area(fine.bbox_xywh)
+        area_ok = True
+        if self.pre_action_bbox_area is not None and area is not None:
+            area_ok = area >= self.pre_action_bbox_area * self.pickup_verify_area_floor_ratio
+
+        if centered and area_ok:
+            self.pickup_verify_fail_cycles = 0
+            self.pickup_source_present_cycles = 0
+            self.pickup_source_clear_cycles = 0
+            self.pickup_verify_hits += 1
+            if self.pickup_verify_hits >= self.pickup_verify_required_hits:
+                return "pass", "pickup verification passed"
+            return "wait", "pickup verification confirming carried object"
+
+        self.pickup_verify_hits = 0
+        self.pickup_verify_fail_cycles += 1
+        if self.pickup_verify_fail_cycles <= self.pickup_verify_fail_grace_cycles:
+            return "wait", "pickup verification re-centering carried object"
+        if not centered:
+            return "fail", "pickup verification target drifted after retract"
+        return "fail", "pickup verification target shrank too much after retract"
 
     def _move_towards_pose(
         self,
@@ -349,6 +472,8 @@ class PrimitiveController:
 
         if state == PrimitiveState.DETECT_GLOBAL:
             if detections.coarse_target and detections.coarse_target.found:
+                self._reset_pickup_verification()
+                self.pre_action_bbox_area = None
                 self.coarse_alignment_hits = 0
                 self.lost_coarse_cycles = 0
                 self.fsm.transition(PrimitiveState.APPROACH_COARSE)
@@ -399,6 +524,7 @@ class PrimitiveController:
                 self.fsm.transition(PrimitiveState.GRASP_OR_INSERT)
                 return ControlDecision(action=current_pose, message="continuing without wrist precision")
             if detections.fine_target and detections.fine_target.found:
+                self._remember_pre_action_target(detections)
                 self.lost_wrist_cycles = 0
                 self.fsm.transition(PrimitiveState.ALIGN_FINE)
                 return ControlDecision(action=current_pose, message="wrist target acquired", use_wrist=True)
@@ -416,6 +542,7 @@ class PrimitiveController:
 
             fine = detections.fine_target
             if fine and fine.found and fine.error_px is not None:
+                self._remember_pre_action_target(detections)
                 self.lost_wrist_cycles = 0
                 tol = self.profile.servo["wrist"].tolerance_px
                 if abs(fine.error_px[0]) <= tol and abs(fine.error_px[1]) <= tol:
@@ -449,6 +576,8 @@ class PrimitiveController:
         if state == PrimitiveState.GRASP_OR_INSERT:
             motion_profile = self.profile.servo["wrist"] if self.spec.camera_role == "wrist" else self.profile.servo["front"]
             use_wrist = self.spec.camera_role == "wrist"
+            if use_wrist:
+                self._remember_pre_action_target(detections)
             max_step = motion_profile.max_step
             if use_wrist:
                 max_step = max(motion_profile.max_step * self.wrist_action_step_scale, 0.4)
@@ -471,6 +600,15 @@ class PrimitiveController:
                 self.action_hold_started = False
                 self.action_hold_cycles_remaining = 0
                 self.lost_wrist_cycles = 0
+                if self.spec.success_mode == "pickup":
+                    self.wrist_settle_cycles_remaining = self.wrist_settle_cycles_after_action if use_wrist else 0
+                    self.fsm.pending_after_retract = PrimitiveState.VERIFY
+                    self.fsm.transition(PrimitiveState.RETRACT)
+                    return ControlDecision(
+                        action=command,
+                        message="grasp pose reached, retracting to verify pickup",
+                        use_wrist=use_wrist,
+                    )
                 self.wrist_settle_cycles_remaining = self.wrist_settle_cycles_after_action if use_wrist else 0
                 self.fsm.transition(PrimitiveState.VERIFY)
                 return ControlDecision(action=command, message="action pose reached", use_wrist=use_wrist)
@@ -485,6 +623,38 @@ class PrimitiveController:
                 self.wrist_settle_cycles_remaining -= 1
                 self.fsm.transition(PrimitiveState.VERIFY)
                 return ControlDecision(action=current_pose, message="waiting for post-action settle", use_wrist=use_wrist)
+
+            if self.spec.success_mode == "pickup":
+                status, pickup_message = self._pickup_verification_status(detections)
+                if status == "pass":
+                    self.lost_wrist_cycles = 0
+                    self.fsm.transition(PrimitiveState.DONE)
+                    return ControlDecision(action=current_pose, message=pickup_message, done=True, use_wrist=use_wrist)
+
+                fine_missing = (
+                    detections.fine_target is None
+                    or not detections.fine_target.found
+                    or detections.fine_target.metadata.get("stale")
+                )
+                if status == "wait":
+                    if fine_missing:
+                        self.lost_wrist_cycles += 1
+                        if self.lost_wrist_cycles > self.wrist_target_miss_grace_cycles:
+                            self._reset_pickup_verification()
+                            self.fsm.transition(PrimitiveState.RETRY_OR_ABORT)
+                            return ControlDecision(
+                                action=current_pose,
+                                message="pickup verification failed: wrist target missing after retract",
+                                use_wrist=use_wrist,
+                            )
+                    else:
+                        self.lost_wrist_cycles = 0
+                    self.fsm.transition(PrimitiveState.VERIFY)
+                    return ControlDecision(action=current_pose, message=pickup_message, use_wrist=use_wrist)
+
+                self._reset_pickup_verification()
+                self.fsm.transition(PrimitiveState.RETRY_OR_ABORT)
+                return ControlDecision(action=current_pose, message=pickup_message, use_wrist=use_wrist)
 
             verified = detections.verified
             if (
@@ -508,6 +678,8 @@ class PrimitiveController:
 
         if state == PrimitiveState.RETRY_OR_ABORT:
             if self.fsm.retries < 2:
+                self._reset_pickup_verification()
+                self.pre_action_bbox_area = None
                 self.fsm.retries += 1
                 self.fsm.pending_after_retract = PrimitiveState.DETECT_GLOBAL
                 self.fsm.transition(PrimitiveState.RETRACT)
@@ -518,9 +690,13 @@ class PrimitiveController:
         if state == PrimitiveState.RETRACT:
             if self._pose_reached(current_pose, retract_pose, tol=1.5):
                 next_state = self.fsm.pending_after_retract
+                if next_state == PrimitiveState.VERIFY and self.spec.camera_role == "wrist":
+                    self.wrist_settle_cycles_remaining = self.wrist_settle_cycles_after_action
                 self.fsm.transition(next_state)
                 if next_state == PrimitiveState.DONE:
                     return ControlDecision(action=current_pose, message="primitive complete", done=True)
+                if next_state == PrimitiveState.VERIFY:
+                    return ControlDecision(action=current_pose, message="retracted and verifying pickup", use_wrist=True)
                 return ControlDecision(action=current_pose, message="retracted and restarting")
             self.fsm.transition(PrimitiveState.RETRACT)
             return ControlDecision(

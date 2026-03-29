@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from skills2026.bootstrap import ensure_lerobot_on_path
 from skills2026.constants import ARM_JOINT_KEYS, BASE_VEL_KEYS
@@ -15,6 +15,7 @@ from lerobot.robots.lekiwi import LeKiwiClient, LeKiwiClientConfig  # noqa: E402
 @dataclass
 class LeKiwiIO:
     profile: Skills2026Profile
+    last_observation: dict | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         camera_configs = {
@@ -45,12 +46,15 @@ class LeKiwiIO:
             self.robot.disconnect()
 
     def get_observation(self) -> dict:
-        return self.robot.get_observation()
+        observation = self.robot.get_observation()
+        self.last_observation = observation
+        return observation
 
     def arm_pose_from_observation(self, observation: dict) -> dict[str, float]:
         return {joint: float(observation.get(joint, 0.0)) for joint in ARM_JOINT_KEYS}
 
     def zero_action(self, observation: dict | None = None) -> dict[str, float]:
+        observation = observation or self.last_observation
         arm_state = {joint: 0.0 for joint in ARM_JOINT_KEYS}
         if observation is not None:
             arm_state = self.arm_pose_from_observation(observation)
@@ -77,4 +81,3 @@ class LeKiwiIO:
 
     def stop_base(self, observation: dict | None = None) -> None:
         self.send_action(self.zero_action(observation))
-

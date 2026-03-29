@@ -128,8 +128,82 @@ class FSMTests(unittest.TestCase):
 
         self.assertEqual(first.message, "holding action pose to secure grasp")
         self.assertEqual(second.message, "holding action pose to secure grasp")
-        self.assertEqual(third.message, "action pose reached")
+        self.assertEqual(third.message, "grasp pose reached, retracting to verify pickup")
+        self.assertEqual(controller.fsm.state, PrimitiveState.RETRACT)
+
+    def test_pickup_verifies_after_retract_with_fresh_wrist_target(self):
+        profile = Skills2026Profile.defaults("fsm")
+        profile.service_poses["debris_pick_pose"] = _pose(5.0)
+        profile.service_poses["safe_retract"] = _pose(10.0)
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.GRASP_OR_INSERT
+        action_pose = _pose(5.0)
+        retract_pose = _pose(10.0)
+        carried = VisionTarget(
+            found=True,
+            camera_role="wrist",
+            confidence=0.9,
+            error_px=(0.0, 0.0),
+            bbox_xywh=(88, 88, 30, 30),
+            metadata={},
+        )
+
+        controller.step(action_pose, DetectionBundle(fine_target=carried), wrist_allowed=True)
+        controller.step(action_pose, DetectionBundle(fine_target=carried), wrist_allowed=True)
+        controller.step(action_pose, DetectionBundle(fine_target=carried), wrist_allowed=True)
+        self.assertEqual(controller.fsm.state, PrimitiveState.RETRACT)
+
+        decision = controller.step(retract_pose, DetectionBundle(), wrist_allowed=True)
+        self.assertEqual(decision.message, "retracted and verifying pickup")
         self.assertEqual(controller.fsm.state, PrimitiveState.VERIFY)
+
+        settle_one = controller.step(retract_pose, DetectionBundle(), wrist_allowed=True)
+        settle_two = controller.step(retract_pose, DetectionBundle(), wrist_allowed=True)
+        self.assertEqual(settle_one.message, "waiting for post-action settle")
+        self.assertEqual(settle_two.message, "waiting for post-action settle")
+
+        first_verify = controller.step(retract_pose, DetectionBundle(fine_target=carried), wrist_allowed=True)
+        second_verify = controller.step(retract_pose, DetectionBundle(fine_target=carried), wrist_allowed=True)
+
+        self.assertEqual(first_verify.message, "pickup verification confirming carried object")
+        self.assertTrue(second_verify.done)
+        self.assertEqual(second_verify.message, "pickup verification passed")
+
+    def test_pickup_retries_when_wrist_target_never_returns_after_retract(self):
+        profile = Skills2026Profile.defaults("fsm")
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.VERIFY
+
+        for _ in range(controller.wrist_target_miss_grace_cycles):
+            decision = controller.step(_pose(0.0), DetectionBundle(), wrist_allowed=True)
+            self.assertEqual(controller.fsm.state, PrimitiveState.VERIFY)
+            self.assertEqual(decision.message, "pickup verification waiting for fresh wrist target")
+
+        decision = controller.step(_pose(0.0), DetectionBundle(), wrist_allowed=True)
+        self.assertEqual(controller.fsm.state, PrimitiveState.RETRY_OR_ABORT)
+        self.assertEqual(decision.message, "pickup verification failed: wrist target missing after retract")
+
+    def test_pickup_can_confirm_from_front_tracking_when_wrist_is_occluded(self):
+        profile = Skills2026Profile.defaults("fsm")
+        controller = PrimitiveController(PRIMITIVES["pick_debris"], profile)
+        controller.fsm.state = PrimitiveState.VERIFY
+        controller.pre_action_bbox_area = 400.0
+        controller.pre_action_coarse_bbox_area = 400.0
+        controller.pre_action_coarse_center = (70.0, 70.0)
+        coarse = VisionTarget(
+            found=True,
+            camera_role="front",
+            center_px=(130.0, 70.0),
+            bbox_xywh=(110, 50, 24, 24),
+            metadata={},
+        )
+
+        first = controller.step(_pose(0.0), DetectionBundle(coarse_target=coarse), wrist_allowed=True)
+        second = controller.step(_pose(0.0), DetectionBundle(coarse_target=coarse), wrist_allowed=True)
+
+        self.assertEqual(first.message, "pickup verification confirming carried object in front view")
+        self.assertTrue(second.done)
+        self.assertEqual(second.message, "pickup verification passed from front-camera carry tracking")
 
 
 if __name__ == "__main__":

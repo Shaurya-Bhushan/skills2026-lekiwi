@@ -78,6 +78,20 @@ class TargetSelectorTests(unittest.TestCase):
 
 
 class PerceptionTests(unittest.TestCase):
+    def test_front_uses_bgr_color_space_for_real_lekiwi_frames(self):
+        frame = np.zeros((220, 220, 3), dtype=np.uint8)
+        frame[80:140, 80:140] = (255, 0, 0)
+
+        target = FrontPerception(canonical_size=(220, 220)).analyze(
+            frame,
+            "pick_fuse",
+            target_color="blue",
+            target_slot="fuse_supply",
+        )
+
+        self.assertTrue(target.found)
+        self.assertEqual(target.label, "blue_fuse")
+
     def test_front_pick_debris_defaults_to_centered_candidate(self):
         frame = np.full((200, 200, 3), 255, dtype=np.uint8)
         frame[80:120, 85:115] = 0
@@ -89,6 +103,23 @@ class PerceptionTests(unittest.TestCase):
         self.assertIsNotNone(target.center_px)
         self.assertAlmostEqual(target.center_px[0], 100.0, delta=20.0)
 
+    def test_front_uses_actual_frame_size_when_uncalibrated(self):
+        frame = np.full((200, 200, 3), 255, dtype=np.uint8)
+        frame[80:120, 85:115] = 0
+
+        target = FrontPerception(canonical_size=(800, 600)).analyze(frame, "pick_debris")
+
+        self.assertTrue(target.found)
+        self.assertAlmostEqual(target.metadata["desired_center"][0], 100.0, delta=1.0)
+        self.assertAlmostEqual(target.metadata["desired_center"][1], 100.0, delta=1.0)
+
+    def test_front_transformer_requires_real_detection(self):
+        frame = np.full((220, 220, 3), 255, dtype=np.uint8)
+
+        target = FrontPerception(canonical_size=(220, 220)).analyze(frame, "replace_transformer", target_slot="left")
+
+        self.assertFalse(target.found)
+
     def test_wrist_generic_pick_prefers_center_candidate(self):
         frame = np.full((200, 200, 3), 255, dtype=np.uint8)
         frame[85:125, 88:118] = 0
@@ -99,6 +130,15 @@ class PerceptionTests(unittest.TestCase):
         self.assertTrue(target.found)
         self.assertIsNotNone(target.center_px)
         self.assertAlmostEqual(target.center_px[0], 103.0, delta=20.0)
+
+    def test_wrist_uses_bgr_color_space_for_real_lekiwi_frames(self):
+        frame = np.zeros((220, 220, 3), dtype=np.uint8)
+        frame[80:140, 80:140] = (255, 0, 0)
+
+        target = WristPerception().analyze(frame, "pick_fuse", target_color="blue")
+
+        self.assertTrue(target.found)
+        self.assertEqual(target.label, "blue_fuse_precision")
 
     def test_wrist_low_contrast_object_is_still_detected(self):
         frame = np.full((240, 240, 3), 170, dtype=np.uint8)

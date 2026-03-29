@@ -58,7 +58,7 @@ class FrontPerception:
         return (x + w / 2.0, y + h / 2.0)
 
     def _foreground_mask(self, frame: np.ndarray) -> np.ndarray:
-        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
         blur = cv2.GaussianBlur(clahe, (5, 5), 0)
         _, otsu_mask = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
@@ -99,9 +99,9 @@ class FrontPerception:
         target_slot: str | None = None,
     ) -> VisionTarget:
         warped = self._maybe_warp(frame, calibration)
-        hsv = cv2.cvtColor(warped, cv2.COLOR_RGB2HSV)
-        width, height = self.canonical_size
         frame_h, frame_w = warped.shape[:2]
+        hsv = cv2.cvtColor(warped, cv2.COLOR_BGR2HSV)
+        width, height = frame_w, frame_h
         desired_slack_px = max(frame_w, frame_h) * 0.12
         tracking_slack_px = max(frame_w, frame_h) * 0.10
 
@@ -193,7 +193,9 @@ class FrontPerception:
                 desired_slack_px=desired_slack_px,
                 tracking_slack_px=tracking_slack_px,
             )
-            center = self._bbox_center(bbox) if bbox is not None else desired_center
+            if bbox is None:
+                return VisionTarget(found=False, camera_role="front", label="transformer_region")
+            center = self._bbox_center(bbox)
             return VisionTarget(
                 found=True,
                 camera_role="front",

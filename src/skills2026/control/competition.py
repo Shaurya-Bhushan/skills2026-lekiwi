@@ -80,10 +80,12 @@ class CompetitionRunner:
 
     def run(self, max_cycles: int = 500) -> int:
         self.io.connect()
+        last_observation = None
         try:
             for cycle_idx in range(max_cycles):
                 loop_start = time.perf_counter()
                 observation = self.io.get_observation()
+                last_observation = observation
                 current_pose = self.io.arm_pose_from_observation(observation)
                 front_frame = observation.get("front")
                 wrist_frame = observation.get("wrist")
@@ -175,7 +177,7 @@ class CompetitionRunner:
                 time.sleep(sleep_s)
 
             logger.warning("Competition loop timed out.")
-            self.io.stop_base()
+            self.io.stop_base(last_observation)
             return 1
         finally:
             self.io.disconnect()
