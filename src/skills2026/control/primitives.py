@@ -343,6 +343,7 @@ class PrimitiveController:
         fine = detections.fine_target
         coarse = detections.coarse_target
         coarse_fresh = bool(coarse and coarse.found and not coarse.metadata.get("stale"))
+        tracked_coarse = bool(coarse_fresh and "tracked" in str(coarse.metadata.get("selected_via", "")))
         same_source = False
         if coarse_fresh and coarse.center_px is not None and self.pre_action_coarse_center is not None:
             coarse_area = self._bbox_area(coarse.bbox_xywh)
@@ -364,18 +365,27 @@ class PrimitiveController:
             if coarse_fresh:
                 if same_source:
                     self.pickup_verify_hits = 0
+                    self.pickup_verify_fail_cycles = 0
                     self.pickup_source_clear_cycles = 0
                     self.pickup_source_present_cycles += 1
                     if self.pickup_source_present_cycles >= self.pickup_source_present_required:
                         return "fail", "pickup source still occupied after retract"
                     return "wait", "pickup source still looks occupied"
 
+                if tracked_coarse:
+                    self.pickup_verify_hits = 0
+                    self.pickup_verify_fail_cycles = 0
+                    self.pickup_source_present_cycles = 0
+                    self.pickup_source_clear_cycles += 1
+                    if self.pickup_source_clear_cycles >= self.pickup_source_clear_required:
+                        return "pass", "pickup verification passed from front-camera carry tracking"
+                    return "wait", "pickup verification confirming carried object in front view"
+
+                self.pickup_verify_hits = 0
                 self.pickup_verify_fail_cycles = 0
                 self.pickup_source_present_cycles = 0
-                self.pickup_source_clear_cycles += 1
-                if self.pickup_source_clear_cycles >= self.pickup_source_clear_required:
-                    return "pass", "pickup verification passed from cleared front source"
-                return "wait", "waiting for pickup source to clear"
+                self.pickup_source_clear_cycles = 0
+                return "wait", "pickup verification waiting for front or wrist confirmation"
             self.pickup_verify_hits = 0
             return "wait", "pickup verification waiting for fresh wrist target"
 
@@ -471,9 +481,10 @@ class PrimitiveController:
         retract_pose = self._pose(self.spec.retract_pose)
 
         if state == PrimitiveState.DETECT_GLOBAL:
+            if self.fsm.cycles_in_state == 0:
+                self._reset_pickup_verification()
             if detections.coarse_target and detections.coarse_target.found:
                 self._reset_pickup_verification()
-                self.pre_action_bbox_area = None
                 self.coarse_alignment_hits = 0
                 self.lost_coarse_cycles = 0
                 self.fsm.transition(PrimitiveState.APPROACH_COARSE)
