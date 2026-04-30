@@ -47,6 +47,22 @@ def build_parser() -> argparse.ArgumentParser:
     teleop_parser = subparsers.add_parser("teleop", help="Leader-arm teleoperation.")
     teleop_parser.set_defaults(handler="skills2026.commands.teleop:run")
 
+    sim_leader_parser = subparsers.add_parser(
+        "sim_leader",
+        help="Run the local 3D simulator with keyboard base and SO-101 leader-arm control.",
+    )
+    sim_leader_parser.add_argument(
+        "--sim-repo",
+        default="",
+        help="Path to the local LeKiwi simulator checkout. Defaults to a sibling simulator folder or SKILLS2026_LEKIWI_SIM_REPO.",
+    )
+    sim_leader_parser.add_argument(
+        "--leader-arm-port",
+        default="auto",
+        help="SO-101 serial port. Use auto to wait for a valid USB serial device.",
+    )
+    sim_leader_parser.set_defaults(handler="skills2026.commands.sim_leader:run")
+
     record_parser = subparsers.add_parser("record", help="Record a primitive dataset.")
     record_parser.add_argument(
         "primitive",

@@ -51,6 +51,21 @@ class CLITests(unittest.TestCase):
         self.assertEqual(args.port, 9999)
         self.assertTrue(args.no_browser)
 
+    def test_sim_leader_command_exists(self):
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "sim_leader",
+                "--sim-repo",
+                "/tmp/lekiwi-sim",
+                "--leader-arm-port",
+                "/dev/cu.usbmodem123",
+            ]
+        )
+        self.assertEqual(args.command, "sim_leader")
+        self.assertEqual(args.sim_repo, "/tmp/lekiwi-sim")
+        self.assertEqual(args.leader_arm_port, "/dev/cu.usbmodem123")
+
     def test_competition_mission_argument(self):
         parser = build_parser()
         args = parser.parse_args(

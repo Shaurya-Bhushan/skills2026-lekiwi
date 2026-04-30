@@ -559,6 +559,40 @@ What success looks like:
 
 If teleop is not solid, do not start data collection yet.
 
+## Step 8.1: Local 3D Leader-Arm Sim
+
+For fast laptop testing, run the local 3D simulator with the keyboard controlling the base and the SO-101 leader arm controlling the virtual arm:
+
+```bash
+skills2026 sim_leader
+```
+
+Equivalent one-click launcher:
+
+```bash
+./run_local_leader_arm.command
+```
+
+If the leader arm is not plugged in yet, leave the command running. The launcher waits until a valid USB serial device appears. To use a known port:
+
+```bash
+skills2026 sim_leader --leader-arm-port /dev/cu.usbmodem5AE60840411
+```
+
+The simulator checkout is expected next to this repo as a sibling folder. You can override it:
+
+```bash
+skills2026 sim_leader --sim-repo /path/to/lekiwi-sim --leader-arm-port auto
+```
+
+or:
+
+```bash
+SKILLS2026_LEKIWI_SIM_REPO=/path/to/lekiwi-sim skills2026 sim_leader
+```
+
+Use this before recording ACT data. The goal is simple: moving the physical leader arm should move the virtual arm with low delay.
+
 ## Step 8.5: Run Pickup Validation
 
 Before trusting the robot on real pickup tasks, run the built-in pickup stress test:
@@ -1053,6 +1087,7 @@ skills2026 --profile <your-profile> setup --skip-live
 skills2026 --profile <your-profile> setup
 skills2026 --profile <your-profile> doctor
 skills2026 --profile <your-profile> teleop
+skills2026 sim_leader
 skills2026 --profile <your-profile> pickup_validation --suite core --trials 3
 skills2026 --profile <your-profile> pickup_validation --suite ecu --trials 3
 skills2026 --profile <your-profile> record insert_fuse --dataset-name <your-profile>_insert_fuse_session1
