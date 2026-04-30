@@ -2,6 +2,17 @@
 
 Plug-and-play LeKiwi tooling for the 2026 Skills Ontario ECU and Steve workflow.
 
+Right now, this repo should be used sim-first.
+The fastest useful workflow is:
+
+1. launch the local 3D simulator
+2. plug in the SO-101 leader arm
+3. move the physical leader arm
+4. confirm the virtual LeKiwi arm follows with low delay
+5. use that sim workflow before recording ACT data or touching the real robot
+
+The real robot path is still here, but treat it as the next step after the sim is stable.
+
 This project is meant for a student team that wants the easiest realistic path:
 
 - LeKiwi + leader arm
@@ -10,7 +21,91 @@ This project is meant for a student team that wants the easiest realistic path:
 - OpenCV + scripted FSM control as the default competition path
 - ACT later for the few precision/contact steps that still need help
 
-If you know nothing yet, start at **Start Here** below and go in order.
+If you know nothing yet, start with **Local Sim First** below.
+
+## Local Sim First
+
+Use this when you want the virtual LeKiwi arm to follow the physical SO-101 leader arm.
+
+### Prerequisites
+
+- this repo checked out locally
+- the local simulator checkout available as a sibling folder, or passed with `--sim-repo`
+- Python environment with this package importable
+- powered SO-101 leader arm connected over USB
+- macOS permissions granted to your terminal app:
+  - `Privacy & Security > Accessibility`
+  - `Privacy & Security > Input Monitoring`
+
+### Fastest Start
+
+From this repo:
+
+```bash
+cd /Users/shauryabhushan/Downloads/Robotics/skills2026-lekiwi-public
+./run_local_leader_arm.command
+```
+
+You can run that before plugging in the leader arm. It waits until a valid USB serial device appears.
+
+If you know the exact port:
+
+```bash
+./run_local_leader_arm.command /dev/cu.usbmodem5AE60840411
+```
+
+The same flow is available through the CLI:
+
+```bash
+PYTHONPATH=src python -m skills2026.cli sim_leader
+```
+
+With an explicit simulator checkout:
+
+```bash
+PYTHONPATH=src python -m skills2026.cli sim_leader \
+  --sim-repo /Users/shauryabhushan/Downloads/Robotics/ekumen-lekiwi \
+  --leader-arm-port auto
+```
+
+You can also set:
+
+```bash
+export SKILLS2026_LEKIWI_SIM_REPO=/Users/shauryabhushan/Downloads/Robotics/ekumen-lekiwi
+PYTHONPATH=src python -m skills2026.cli sim_leader
+```
+
+### What Should Happen
+
+- a MuJoCo 3D viewer opens
+- the robot base stays on keyboard controls
+- the physical SO-101 leader arm controls the virtual arm
+- if the MuJoCo viewer closes, the sim host keeps running headless
+- if the leader arm is not plugged in yet, the launcher waits
+
+Base controls in the 3D viewer-safe profile:
+
+```text
+i forward
+k backward
+j left
+l right
+u rotate left
+o rotate right
+= speed up
+- speed down
+' quit
+```
+
+### Troubleshooting The Sim
+
+If the command only shows `debug-console` or `Bluetooth-Incoming-Port`, macOS does not see the leader arm yet. Check USB power, cable, and the controller board.
+
+If the arm connects but motion is slow, close other old sim windows and rerun the launcher. The local simulator path disables camera rendering and uses the faster 3D leader-arm profile.
+
+If keyboard input does not work, re-check terminal permissions in macOS Accessibility and Input Monitoring, then fully quit and reopen the terminal.
+
+Use the sim successfully before recording ACT demos. A good first target is simple: moving the physical leader arm should move the virtual arm immediately and in the expected direction.
 
 ## Safest Workflow
 
@@ -558,40 +653,6 @@ What success looks like:
 - base stop behavior is safe
 
 If teleop is not solid, do not start data collection yet.
-
-## Step 8.1: Local 3D Leader-Arm Sim
-
-For fast laptop testing, run the local 3D simulator with the keyboard controlling the base and the SO-101 leader arm controlling the virtual arm:
-
-```bash
-skills2026 sim_leader
-```
-
-Equivalent one-click launcher:
-
-```bash
-./run_local_leader_arm.command
-```
-
-If the leader arm is not plugged in yet, leave the command running. The launcher waits until a valid USB serial device appears. To use a known port:
-
-```bash
-skills2026 sim_leader --leader-arm-port /dev/cu.usbmodem5AE60840411
-```
-
-The simulator checkout is expected next to this repo as a sibling folder. You can override it:
-
-```bash
-skills2026 sim_leader --sim-repo /path/to/lekiwi-sim --leader-arm-port auto
-```
-
-or:
-
-```bash
-SKILLS2026_LEKIWI_SIM_REPO=/path/to/lekiwi-sim skills2026 sim_leader
-```
-
-Use this before recording ACT data. The goal is simple: moving the physical leader arm should move the virtual arm with low delay.
 
 ## Step 8.5: Run Pickup Validation
 
